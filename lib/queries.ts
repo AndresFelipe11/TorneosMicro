@@ -1,7 +1,15 @@
 import { prisma } from "@/lib/prisma";
 import { computeDefense } from "@/lib/tournament/defense";
+import { computePlayerCards } from "@/lib/tournament/discipline";
+import { isClosedMatch } from "@/lib/tournament/match";
 import { computeScorers } from "@/lib/tournament/scorers";
 import { computeStandings, standingsByGroup } from "@/lib/tournament/standings";
+
+function closedMatchesOf(tournament: TournamentDetail) {
+  return tournament.matches.filter(
+    (match) => isClosedMatch(match.status) && match.homeScore != null && match.awayScore != null,
+  );
+}
 
 export const tournamentInclude = {
   teams: {
@@ -18,6 +26,7 @@ export const tournamentInclude = {
       awayTeam: true,
       group: true,
       goals: { include: { player: true } },
+      cards: { include: { player: true } },
       scoresheet: { select: { fileName: true, uploadedAt: true } },
     },
     orderBy: { scheduledAt: "asc" as const },
@@ -43,15 +52,13 @@ export async function getTournament(id: string) {
 export type TournamentDetail = NonNullable<Awaited<ReturnType<typeof getTournament>>>;
 
 export function playedMatchesOf(tournament: TournamentDetail) {
-  return tournament.matches
-    .filter((match) => match.status === "PLAYED" && match.homeScore != null && match.awayScore != null)
-    .map((match) => ({
-      homeTeamId: match.homeTeamId,
-      awayTeamId: match.awayTeamId,
-      homeScore: match.homeScore ?? 0,
-      awayScore: match.awayScore ?? 0,
-      groupName: match.group?.name ?? match.homeTeam.groupId,
-    }));
+  return closedMatchesOf(tournament).map((match) => ({
+    homeTeamId: match.homeTeamId,
+    awayTeamId: match.awayTeamId,
+    homeScore: match.homeScore ?? 0,
+    awayScore: match.awayScore ?? 0,
+    groupName: match.group?.name ?? match.homeTeam.groupId,
+  }));
 }
 
 export function standingsFor(tournament: TournamentDetail) {
@@ -61,9 +68,7 @@ export function standingsFor(tournament: TournamentDetail) {
     groupName: team.group?.name ?? null,
   }));
 
-  const played = tournament.matches.filter(
-    (match) => match.status === "PLAYED" && match.homeScore != null && match.awayScore != null,
-  );
+  const played = closedMatchesOf(tournament);
 
   const asPlayed = (list: typeof played) =>
     list.map((match) => ({
@@ -106,6 +111,7 @@ export function scorersFor(tournament: TournamentDetail) {
       match.goals.map((goal) => ({
         playerId: goal.playerId,
         playerName: goal.player.name,
+        playerNumber: goal.player.number,
         teamId: goal.teamId,
         teamName:
           tournament.teams.find((team) => team.id === goal.teamId)?.name ?? goal.player.name,
@@ -120,13 +126,34 @@ export function defenseFor(tournament: TournamentDetail) {
     name: team.name,
     groupName: team.group?.name ?? null,
   }));
-  const played = tournament.matches
-    .filter((match) => match.status === "PLAYED" && match.homeScore != null && match.awayScore != null)
-    .map((match) => ({
+  const played = closedMatchesOf(tournament).map((match) => ({
       homeTeamId: match.homeTeamId,
       awayTeamId: match.awayTeamId,
       homeScore: match.homeScore ?? 0,
       awayScore: match.awayScore ?? 0,
     }));
   return computeDefense(teams, played);
+}
+
+export function playerCardsFor(tournament: TournamentDetail) {
+  return computePlayerCards(
+    tournament.teams.flatMap((team) =>
+      team.players.map((player) => ({
+        id: player.id,
+        name: player.name,
+        number: player.number,
+        teamId: team.id,
+        teamName: team.name,
+      })),
+    ),
+    tournament.matches.map((match) => ({
+      status: match.status,
+      cards: match.cards.map((card) => ({
+        id: card.id,
+        playerId: card.playerId,
+        type: card.type,
+        paid: card.paid,
+      })),
+    })),
+  );
 }

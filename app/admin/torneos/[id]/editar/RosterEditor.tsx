@@ -7,8 +7,8 @@ import {
   addTeamAction,
   deletePlayerAction,
   deleteTeamAction,
-  renamePlayerAction,
   renameTeamAction,
+  updatePlayerAction,
   updateTournamentNameAction,
 } from "@/lib/actions/roster";
 
@@ -146,8 +146,8 @@ export function RosterEditor({
               }
               run(() => deleteTeamAction(team.id));
             }}
-            onAddPlayer={(value) => run(() => addPlayerAction(team.id, value))}
-            onRenamePlayer={(playerId, value) => run(() => renamePlayerAction(playerId, value))}
+            onAddPlayer={(value, number) => run(() => addPlayerAction(team.id, value, number))}
+            onRenamePlayer={(playerId, value, number) => run(() => updatePlayerAction(playerId, value, number))}
             onDeletePlayer={(player) => {
               if (!confirm(`¿Quitar a ${player.name} de ${team.name}?`)) return;
               run(() => deletePlayerAction(player.id));
@@ -175,12 +175,13 @@ function TeamCard({
   pending: boolean;
   onRename: (name: string) => void;
   onDelete: () => void;
-  onAddPlayer: (name: string) => void;
-  onRenamePlayer: (playerId: string, name: string) => void;
+  onAddPlayer: (name: string, number?: number | null) => void;
+  onRenamePlayer: (playerId: string, name: string, number?: number | null) => void;
   onDeletePlayer: (player: Player) => void;
 }) {
   const [teamName, setTeamName] = useState(team.name);
   const [playerName, setPlayerName] = useState("");
+  const [playerNumber, setPlayerNumber] = useState("");
 
   useEffect(() => {
     setTeamName(team.name);
@@ -210,7 +211,7 @@ function TeamCard({
               key={player.id}
               player={player}
               pending={pending}
-              onRename={(value) => onRenamePlayer(player.id, value)}
+              onRename={(value, number) => onRenamePlayer(player.id, value, number)}
               onDelete={() => onDeletePlayer(player)}
             />
           ))
@@ -222,10 +223,20 @@ function TeamCard({
         onSubmit={(event) => {
           event.preventDefault();
           if (!playerName.trim()) return;
-          onAddPlayer(playerName);
+          onAddPlayer(playerName, playerNumber === "" ? undefined : Number(playerNumber));
           setPlayerName("");
+          setPlayerNumber("");
         }}
       >
+        <input
+          className="field w-24"
+          type="number"
+          min={1}
+          max={99}
+          placeholder="#"
+          value={playerNumber}
+          onChange={(e) => setPlayerNumber(e.target.value)}
+        />
         <input
           className="field flex-1"
           placeholder="Nuevo jugador"
@@ -248,17 +259,33 @@ function PlayerRow({
 }: {
   player: Player;
   pending: boolean;
-  onRename: (name: string) => void;
+  onRename: (name: string, number?: number | null) => void;
   onDelete: () => void;
 }) {
   const [name, setName] = useState(player.name);
+  const [number, setNumber] = useState(player.number == null ? "" : String(player.number));
   useEffect(() => {
     setName(player.name);
-  }, [player.name]);
+    setNumber(player.number == null ? "" : String(player.number));
+  }, [player.name, player.number]);
   return (
     <li className="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <input
+        className="field w-24"
+        type="number"
+        min={1}
+        max={99}
+        placeholder="#"
+        value={number}
+        onChange={(e) => setNumber(e.target.value)}
+      />
       <input className="field flex-1" value={name} onChange={(e) => setName(e.target.value)} />
-      <button type="button" className="btn btn-ghost" disabled={pending} onClick={() => onRename(name)}>
+      <button
+        type="button"
+        className="btn btn-ghost"
+        disabled={pending}
+        onClick={() => onRename(name, number === "" ? null : Number(number))}
+      >
         Guardar
       </button>
       <button type="button" className="btn btn-ghost text-red-400" disabled={pending} onClick={onDelete}>

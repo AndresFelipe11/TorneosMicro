@@ -25,8 +25,9 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
           <p className="text-sm font-bold uppercase tracking-widest text-muted">{formatLabel(tournament.format)}</p>
           <h1 className="display text-4xl">{tournament.name}</h1>
           <p className="text-muted">
-            {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)} · Juega{" "}
-            {playingDaysLabel(tournament.playingDays)}
+          {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)} · Juega{" "}
+          {playingDaysLabel(tournament.playingDays)}
+          {tournament.venue ? ` · ${tournament.venue}` : ""}
           </p>
           {tournament.format === "GROUPS" ? (
             <p className="text-sm text-muted">Después de grupos: {nextPhaseLabel(tournament.nextPhase)}</p>
@@ -41,7 +42,11 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
           <h2 className="display mb-3 text-2xl">Próximos partidos</h2>
-          <MatchList matches={upcoming} hrefFor={(matchId) => `/torneos/${id}/partidos/${matchId}`} />
+          <MatchList
+            matches={upcoming}
+            hrefFor={(matchId) => `/torneos/${id}/partidos/${matchId}`}
+            tournamentVenue={tournament.venue}
+          />
         </div>
         <div className="space-y-6">
           <div>

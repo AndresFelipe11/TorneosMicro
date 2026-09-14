@@ -67,6 +67,7 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
       <MatchList
         matches={tournament.matches}
         hrefFor={(matchId) => `/admin/torneos/${id}/partidos/${matchId}`}
+        tournamentVenue={tournament.venue}
       />
       {isGlobalAdmin(admin) ? (
         <div className="mt-8">

@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getTournament } from "@/lib/queries";
 import { requireTournamentPage } from "@/lib/authz";
 import { toBogotaDateString } from "@/lib/tournament/dates";
+import { isClosedMatch } from "@/lib/tournament/match";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { MatchList } from "@/components/MatchList";
 import { ScheduleEditor } from "./ScheduleEditor";
@@ -13,7 +14,7 @@ export default async function AdminCalendarPage({ params }: { params: Promise<{ 
   if (!tournament) notFound();
 
   const pending = tournament.matches.filter((match) => match.status === "SCHEDULED");
-  const played = tournament.matches.filter((match) => match.status === "PLAYED");
+  const played = tournament.matches.filter((match) => isClosedMatch(match.status));
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -34,6 +35,7 @@ export default async function AdminCalendarPage({ params }: { params: Promise<{ 
           maxMatchesPerDay: tournament.maxMatchesPerDay,
           matchDurationMinutes: tournament.matchDurationMinutes,
           startTime: tournament.startTime,
+          venue: tournament.venue ?? "",
         }}
         pending={pending.map((match) => ({
           id: match.id,
@@ -54,6 +56,7 @@ export default async function AdminCalendarPage({ params }: { params: Promise<{ 
       <MatchList
         matches={tournament.matches}
         hrefFor={(matchId) => `/admin/torneos/${id}/partidos/${matchId}`}
+        tournamentVenue={tournament.venue}
       />
     </div>
   );

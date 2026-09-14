@@ -13,6 +13,7 @@ import { validateConfig, withDistributedGroups } from "@/lib/tournament/generate
 import type { GeneratedMatch, TournamentConfig, UnscheduledMatch } from "@/lib/tournament/types";
 import { getTournament, standingsFor } from "@/lib/queries";
 import { readScoresheetFile } from "@/lib/scoresheet";
+import { isClosedMatch, venueOrNull, WALKOVER_GOALS } from "@/lib/tournament/match";
 
 function revalidateTournament(id: string) {
   revalidatePath("/");
@@ -53,6 +54,7 @@ export async function createTournamentAction(input: {
         maxMatchesPerDay: config.maxMatchesPerDay,
         matchDurationMinutes: config.matchDurationMinutes,
         startTime: config.startTime,
+        venue: venueOrNull(config.venue),
       },
     });
 
@@ -102,6 +104,7 @@ export async function createTournamentAction(input: {
           groupId: match.groupName ? groupIds.get(match.groupName) : null,
           knockoutRound: match.knockoutRound as KnockoutRound | undefined,
           scheduledAt: new Date(match.scheduledAt),
+          venue: venueOrNull(config.venue),
         },
       });
     }
@@ -191,6 +194,7 @@ export async function updateTournamentScheduleAction(input: {
   maxMatchesPerDay: number;
   matchDurationMinutes: number;
   startTime: string;
+  venue?: string | null;
 }): Promise<{ error: string; message?: undefined } | { error?: undefined; ok: true; moved: number; message: string }> {
   const admin = await requireTournamentMutation(input.tournamentId);
   if (!admin.ok) return { error: admin.error };
@@ -203,7 +207,7 @@ export async function updateTournamentScheduleAction(input: {
 
   const pending = tournament.matches.filter((match) => match.status === "SCHEDULED");
   const occupied = tournament.matches
-    .filter((match) => match.status === "PLAYED")
+    .filter((match) => isClosedMatch(match.status))
     .map((match) => ({
       homeTeamName: match.homeTeam.name,
       awayTeamName: match.awayTeam.name,
@@ -244,7 +248,18 @@ export async function updateTournamentScheduleAction(input: {
         maxMatchesPerDay: config.maxMatchesPerDay,
         matchDurationMinutes: config.matchDurationMinutes,
         startTime: config.startTime,
+        venue: venueOrNull(input.venue),
       },
+    });
+
+    const nextVenue = venueOrNull(input.venue);
+    await tx.match.updateMany({
+      where: {
+        tournamentId: tournament.id,
+        status: "SCHEDULED",
+        OR: [{ venue: null }, ...(tournament.venue ? [{ venue: tournament.venue }] : [])],
+      },
+      data: { venue: nextVenue },
     });
 
     for (const match of scheduled.matches) {
@@ -270,6 +285,7 @@ export async function updateTournamentScheduleAction(input: {
 export async function rescheduleMatchAction(input: {
   matchId: string;
   scheduledAt: string;
+  venue?: string | null;
 }): Promise<{ error: string; message?: undefined } | { error?: undefined; ok: true; message: string }> {
   const when = fromBogotaDateTimeLocal(input.scheduledAt);
   if (!when || Number.isNaN(when.getTime())) {
@@ -294,8 +310,8 @@ export async function rescheduleMatchAction(input: {
   const access = await requireTournamentMutation(match.tournamentId);
   if (!access.ok) return { error: "Solo el administrador de este torneo puede reprogramar el partido." };
   if (match.tournament.status === "FINISHED") return { error: "El torneo ya terminó." };
-  if (match.status === "PLAYED") {
-    return { error: "Ese partido ya se jugó. Si la hora real fue otra, ajústala al guardar el resultado." };
+  if (isClosedMatch(match.status)) {
+    return { error: "Ese partido ya tiene resultado. Anúlalo primero si necesitas cambiar la fecha." };
   }
 
   const conflict = sameDayTeamConflict(
@@ -308,7 +324,7 @@ export async function rescheduleMatchAction(input: {
 
   await prisma.match.update({
     where: { id: match.id },
-    data: { scheduledAt: when },
+    data: { scheduledAt: when, venue: venueOrNull(input.venue) ?? match.venue },
   });
 
   revalidateTournament(match.tournamentId);
@@ -323,19 +339,32 @@ async function refreshTournamentStatus(tournamentId: string) {
     select: { status: true },
   });
   if (matches.length === 0) return;
-  const played = matches.filter((match) => match.status === "PLAYED").length;
+  const closed = matches.filter((match) => isClosedMatch(match.status)).length;
   const status =
-    played === 0 ? "SCHEDULED" : played === matches.length ? "FINISHED" : "IN_PROGRESS";
+    closed === 0 ? "SCHEDULED" : closed === matches.length ? "FINISHED" : "IN_PROGRESS";
   await prisma.tournament.update({ where: { id: tournamentId }, data: { status } });
 }
 
 export async function saveMatchResultAction(input: {
   matchId: string;
-  homeScore: number;
-  awayScore: number;
+  homeScore?: number;
+  awayScore?: number;
   winnerId?: string | null;
   scheduledAt?: string;
-  goals: { playerId?: string; playerName?: string; teamId: string; minute?: number | null }[];
+  venue?: string | null;
+  outcome?: "PLAYED" | "WALKOVER";
+  walkoverWinnerId?: string;
+  homePenalties?: number | null;
+  awayPenalties?: number | null;
+  goals?: { playerId?: string; playerName?: string; teamId: string; minute?: number | null }[];
+  cards?: {
+    playerId?: string;
+    playerName?: string;
+    teamId: string;
+    type: "YELLOW" | "RED";
+    minute?: number | null;
+    paid?: boolean;
+  }[];
   scoresheet?: File | null;
   removeScoresheet?: boolean;
 }) {
@@ -346,13 +375,44 @@ export async function saveMatchResultAction(input: {
   if (!match) return { error: "Partido no encontrado." };
   const access = await requireTournamentMutation(match.tournamentId);
   if (!access.ok) return { error: access.error };
-  if (input.homeScore < 0 || input.awayScore < 0) return { error: "El marcador no puede ser negativo." };
 
+  const outcome = input.outcome ?? "PLAYED";
+  let homeScore = input.homeScore ?? 0;
+  let awayScore = input.awayScore ?? 0;
   let winnerId = input.winnerId ?? null;
-  if (input.homeScore > input.awayScore) winnerId = match.homeTeamId;
-  else if (input.awayScore > input.homeScore) winnerId = match.awayTeamId;
-  else if (match.phase === "KNOCKOUT" && !winnerId) {
-    return { error: "En eliminación no hay empate. Indica el ganador por penales." };
+  let homePenalties = input.homePenalties ?? null;
+  let awayPenalties = input.awayPenalties ?? null;
+  const goals = input.goals ?? [];
+  const cards = input.cards ?? [];
+
+  if (outcome === "WALKOVER") {
+    const winner = input.walkoverWinnerId;
+    if (winner !== match.homeTeamId && winner !== match.awayTeamId) {
+      return { error: "Indica qué equipo gana por W.O." };
+    }
+    homeScore = winner === match.homeTeamId ? WALKOVER_GOALS : 0;
+    awayScore = winner === match.awayTeamId ? WALKOVER_GOALS : 0;
+    winnerId = winner;
+    homePenalties = null;
+    awayPenalties = null;
+  } else {
+    if (homeScore < 0 || awayScore < 0) return { error: "El marcador no puede ser negativo." };
+    if (homeScore > awayScore) winnerId = match.homeTeamId;
+    else if (awayScore > homeScore) winnerId = match.awayTeamId;
+    else if (match.phase === "KNOCKOUT") {
+      if (homePenalties == null || awayPenalties == null) {
+        return { error: "En eliminación, un empate se define con el marcador de penales." };
+      }
+      if (homePenalties < 0 || awayPenalties < 0) return { error: "Los penales no pueden ser negativos." };
+      if (homePenalties === awayPenalties) {
+        return { error: "En penales tiene que ganar uno. El marcador no puede quedar empatado." };
+      }
+      winnerId = homePenalties > awayPenalties ? match.homeTeamId : match.awayTeamId;
+    } else {
+      homePenalties = null;
+      awayPenalties = null;
+      winnerId = null;
+    }
   }
 
   const photo = await readScoresheetFile(input.scoresheet);
@@ -360,25 +420,45 @@ export async function saveMatchResultAction(input: {
 
   try {
     await prisma.$transaction(async (tx) => {
-      const players = await resolveGoalPlayers(tx, [match.homeTeamId, match.awayTeamId], input.goals);
-      if ("error" in players) {
-        throw new ResultSaveError(players.error);
-      }
+      const goalPlayers =
+        outcome === "PLAYED"
+          ? await resolveGoalPlayers(tx, [match.homeTeamId, match.awayTeamId], goals)
+          : { players: [] as { playerId: string; teamId: string; minute: number | null }[] };
+      if ("error" in goalPlayers) throw new ResultSaveError(goalPlayers.error);
+
+      const cardPlayers =
+        outcome === "PLAYED"
+          ? await resolveGoalPlayers(tx, [match.homeTeamId, match.awayTeamId], cards)
+          : { players: [] as { playerId: string; teamId: string; minute: number | null }[] };
+      if ("error" in cardPlayers) throw new ResultSaveError(cardPlayers.error);
 
       await tx.goal.deleteMany({ where: { matchId: match.id } });
+      await tx.matchCard.deleteMany({ where: { matchId: match.id } });
       await tx.match.update({
         where: { id: match.id },
         data: {
-          homeScore: input.homeScore,
-          awayScore: input.awayScore,
+          homeScore,
+          awayScore,
+          homePenalties,
+          awayPenalties,
           winnerId,
-          status: "PLAYED",
+          status: outcome,
+          venue: input.venue !== undefined ? venueOrNull(input.venue) : match.venue,
           scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : match.scheduledAt,
           goals: {
-            create: players.players.map((goal) => ({
+            create: goalPlayers.players.map((goal) => ({
               playerId: goal.playerId,
               teamId: goal.teamId,
               minute: goal.minute,
+            })),
+          },
+          cards: {
+            create: cardPlayers.players.map((card, index) => ({
+              playerId: card.playerId,
+              teamId: card.teamId,
+              minute: card.minute,
+              type: cards[index]?.type ?? "YELLOW",
+              paid: cards[index]?.type === "YELLOW" ? Boolean(cards[index]?.paid) : false,
             })),
           },
         },
@@ -414,6 +494,72 @@ export async function saveMatchResultAction(input: {
   revalidatePath(`/admin/torneos/${match.tournamentId}/partidos/${match.id}`);
   revalidatePath(`/torneos/${match.tournamentId}/partidos/${match.id}`);
   return { ok: true };
+}
+
+export async function setCardsPaidAction(cardIds: string[], paid: boolean) {
+  const ids = [...new Set(cardIds.filter(Boolean))];
+  if (ids.length === 0) return { error: "No hay tarjetas para actualizar." };
+
+  const cards = await prisma.matchCard.findMany({
+    where: { id: { in: ids } },
+    include: { match: { select: { id: true, tournamentId: true } } },
+  });
+  if (cards.length === 0) return { error: "Tarjetas no encontradas." };
+
+  const tournamentId = cards[0].match.tournamentId;
+  if (cards.some((card) => card.match.tournamentId !== tournamentId)) {
+    return { error: "Las tarjetas no pertenecen al mismo torneo." };
+  }
+  const access = await requireTournamentMutation(tournamentId);
+  if (!access.ok) return { error: access.error };
+
+  const yellowIds = cards.filter((card) => card.type === "YELLOW").map((card) => card.id);
+  if (yellowIds.length === 0) return { error: "Solo se puede marcar el pago de las amarillas." };
+
+  await prisma.matchCard.updateMany({
+    where: { id: { in: yellowIds } },
+    data: { paid },
+  });
+
+  revalidateTournament(tournamentId);
+  for (const matchId of new Set(cards.map((card) => card.match.id))) {
+    revalidatePath(`/admin/torneos/${tournamentId}/partidos/${matchId}`);
+    revalidatePath(`/torneos/${tournamentId}/partidos/${matchId}`);
+  }
+  return { ok: true };
+}
+
+export async function resetMatchResultAction(matchId: string) {
+  const match = await prisma.match.findUnique({
+    where: { id: matchId },
+    include: { tournament: true },
+  });
+  if (!match) return { error: "Partido no encontrado." };
+  const access = await requireTournamentMutation(match.tournamentId);
+  if (!access.ok) return { error: access.error };
+  if (!isClosedMatch(match.status)) return { error: "Ese partido todavía no tiene resultado." };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.goal.deleteMany({ where: { matchId: match.id } });
+    await tx.matchCard.deleteMany({ where: { matchId: match.id } });
+    await tx.match.update({
+      where: { id: match.id },
+      data: {
+        status: "SCHEDULED",
+        homeScore: null,
+        awayScore: null,
+        homePenalties: null,
+        awayPenalties: null,
+        winnerId: null,
+      },
+    });
+  });
+
+  await refreshTournamentStatus(match.tournamentId);
+  revalidateTournament(match.tournamentId);
+  revalidatePath(`/admin/torneos/${match.tournamentId}/partidos/${match.id}`);
+  revalidatePath(`/torneos/${match.tournamentId}/partidos/${match.id}`);
+  return { ok: true, message: "El resultado se anuló. El partido volvió a programado." };
 }
 
 function lastMatchDate(dates: Date[]) {
@@ -464,7 +610,7 @@ async function resolveGoalPlayers(
     }
 
     if (!name) {
-      return { error: "Cada gol necesita un jugador de la lista o un nombre nuevo." };
+      return { error: "Cada gol o tarjeta necesita un jugador de la lista o un nombre nuevo." };
     }
 
     const cacheKey = `${goal.teamId}:${name.toLowerCase()}`;
@@ -510,7 +656,7 @@ export async function advancePhaseAction(tournamentId: string) {
   const quadMatches = tournament.matches.filter((match) => match.phase === "QUADRANGULAR");
 
   if (tournament.format === "GROUPS" && tournament.nextPhase !== "NONE") {
-    const groupsDone = groupMatches.length > 0 && groupMatches.every((match) => match.status === "PLAYED");
+    const groupsDone = groupMatches.length > 0 && groupMatches.every((match) => isClosedMatch(match.status));
     if (!groupsDone) return { error: "Todavía hay partidos de grupos sin resultado." };
 
     if (tournament.nextPhase === "QUADRANGULAR" && quadMatches.length === 0) {
@@ -545,6 +691,7 @@ export async function advancePhaseAction(tournamentId: string) {
           phase: "QUADRANGULAR" as MatchPhase,
           round: match.round,
           scheduledAt: new Date(match.scheduledAt),
+          venue: venueOrNull(tournament.venue),
         })),
       });
       await prisma.tournament.update({ where: { id: tournamentId }, data: { status: "IN_PROGRESS" } });
@@ -598,6 +745,7 @@ export async function advancePhaseAction(tournamentId: string) {
             round: match.round,
             knockoutRound: match.knockoutRound as KnockoutRound,
             scheduledAt: new Date(match.scheduledAt),
+            venue: venueOrNull(tournament.venue),
           })),
         });
         await prisma.tournament.update({ where: { id: tournamentId }, data: { status: "IN_PROGRESS" } });
@@ -610,7 +758,7 @@ export async function advancePhaseAction(tournamentId: string) {
         knockoutMatches[0]?.knockoutRound ?? "SF",
       );
       const currentRoundMatches = knockoutMatches.filter((match) => match.knockoutRound === latestRound);
-      if (!currentRoundMatches.every((match) => match.status === "PLAYED")) {
+      if (!currentRoundMatches.every((match) => isClosedMatch(match.status))) {
         return { error: "Faltan resultados en la ronda de eliminación actual." };
       }
       if (latestRound === "F") {
@@ -650,6 +798,7 @@ export async function advancePhaseAction(tournamentId: string) {
           round: match.round,
           knockoutRound: match.knockoutRound as KnockoutRound,
           scheduledAt: new Date(match.scheduledAt),
+          venue: venueOrNull(tournament.venue),
         })),
       });
       revalidateTournament(tournamentId);
@@ -657,7 +806,7 @@ export async function advancePhaseAction(tournamentId: string) {
     }
   }
 
-  const allPlayed = tournament.matches.every((match) => match.status === "PLAYED");
+  const allPlayed = tournament.matches.every((match) => isClosedMatch(match.status));
   if (allPlayed) {
     await prisma.tournament.update({ where: { id: tournamentId }, data: { status: "FINISHED" } });
     revalidateTournament(tournamentId);

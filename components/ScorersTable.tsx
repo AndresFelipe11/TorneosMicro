@@ -1,3 +1,4 @@
+import { playerLabel } from "@/lib/format";
 import type { ScorerRow } from "@/lib/tournament/types";
 
 export function ScorersTable({ rows }: { rows: ScorerRow[] }) {
@@ -21,7 +22,7 @@ export function ScorersTable({ rows }: { rows: ScorerRow[] }) {
             {rows.map((row, index) => (
               <tr key={row.playerId}>
                 <td className="font-bold">{index + 1}</td>
-                <td className="font-semibold">{row.playerName}</td>
+                <td className="font-semibold">{playerLabel(row.playerName, row.playerNumber)}</td>
                 <td>{row.teamName}</td>
                 <td className="display text-2xl text-lime">{row.goals}</td>
               </tr>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MatchPhase, MatchStatus } from "@prisma/client";
 import { formatDateTime, knockoutLabel, phaseLabel, scoreLabel } from "@/lib/format";
+import { displayVenue } from "@/lib/tournament/match";
 
 export function StatusBadge({
   status,
@@ -13,6 +14,7 @@ export function StatusBadge({
     IN_PROGRESS: "En juego",
     FINISHED: "Finalizado",
     PLAYED: "Jugado",
+    WALKOVER: "W.O.",
   };
   const tone: Record<string, string> = {
     DRAFT: "bg-stone-200 text-stone-700",
@@ -20,6 +22,7 @@ export function StatusBadge({
     IN_PROGRESS: "bg-orange-400/20 text-orange-200",
     FINISHED: "bg-sky-400/20 text-sky-200",
     PLAYED: "bg-sky-400/20 text-sky-200",
+    WALKOVER: "bg-orange-400/20 text-orange-200",
   };
   return (
     <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${tone[status] ?? "bg-stone-200"}`}>
@@ -33,10 +36,13 @@ type MatchItem = {
   scheduledAt: Date;
   homeScore: number | null;
   awayScore: number | null;
+  homePenalties?: number | null;
+  awayPenalties?: number | null;
   status: MatchStatus;
   phase: MatchPhase;
   round: number;
   knockoutRound?: "R16" | "QF" | "SF" | "F" | null;
+  venue?: string | null;
   homeTeam: { name: string };
   awayTeam: { name: string };
   group?: { name: string } | null;
@@ -46,9 +52,11 @@ type MatchItem = {
 export function MatchList({
   matches,
   hrefFor,
+  tournamentVenue,
 }: {
   matches: MatchItem[];
   hrefFor: (id: string) => string;
+  tournamentVenue?: string | null;
 }) {
   if (matches.length === 0) {
     return <p className="text-muted">Aún no hay partidos programados.</p>;
@@ -67,10 +75,17 @@ export function MatchList({
               {formatDateTime(match.scheduledAt)} · {phaseLabel(match.phase)}
               {match.group ? ` · ${match.group.name}` : ""}
               {match.knockoutRound ? ` · ${knockoutLabel(match.knockoutRound)}` : ` · Jornada ${match.round}`}
+              {match.venue || tournamentVenue ? ` · ${displayVenue(match.venue, tournamentVenue)}` : ""}
             </p>
             <p className="display mt-1 text-2xl">
               {match.homeTeam.name}{" "}
-              <span className="text-lime">{scoreLabel(match.homeScore, match.awayScore)}</span>{" "}
+              <span className="text-lime">
+                {scoreLabel(match.homeScore, match.awayScore, {
+                  homePenalties: match.homePenalties,
+                  awayPenalties: match.awayPenalties,
+                  walkover: match.status === "WALKOVER",
+                })}
+              </span>{" "}
               {match.awayTeam.name}
             </p>
             {match.scoresheet ? (

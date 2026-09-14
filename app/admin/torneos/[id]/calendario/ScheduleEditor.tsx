@@ -15,6 +15,7 @@ type ScheduleDraft = {
   maxMatchesPerDay: number;
   matchDurationMinutes: number;
   startTime: string;
+  venue: string;
 };
 
 export function ScheduleEditor({
@@ -157,6 +158,17 @@ export function ScheduleEditor({
               value={draft.startTime}
               onChange={(event) => update("startTime", event.target.value)}
             />
+          </label>
+          <label className="block space-y-1 sm:col-span-2">
+            <span className="text-sm font-semibold">Cancha / sede</span>
+            <input
+              className="field"
+              disabled={finished}
+              placeholder="Ej. Cancha 1 · Parque El Salitre"
+              value={draft.venue}
+              onChange={(event) => update("venue", event.target.value)}
+            />
+            <span className="text-xs text-muted">Se aplica a los partidos pendientes que no tengan otra cancha.</span>
           </label>
         </div>
         <p className="text-sm text-muted">

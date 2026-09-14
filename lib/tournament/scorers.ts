@@ -3,6 +3,7 @@ import type { ScorerRow } from "./types";
 export type GoalInput = {
   playerId: string;
   playerName: string;
+  playerNumber?: number | null;
   teamId: string;
   teamName: string;
 };
@@ -13,6 +14,7 @@ export function computeScorers(goals: GoalInput[]): ScorerRow[] {
     const current = map.get(goal.playerId) ?? {
       playerId: goal.playerId,
       playerName: goal.playerName,
+      playerNumber: goal.playerNumber ?? null,
       teamId: goal.teamId,
       teamName: goal.teamName,
       goals: 0,

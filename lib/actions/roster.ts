@@ -132,6 +132,7 @@ export async function addTeamAction(input: {
           round: match.round,
           groupId,
           scheduledAt: new Date(match.scheduledAt),
+          venue: tournament.venue,
         })),
       });
     }
@@ -191,7 +192,7 @@ export async function deleteTeamAction(teamId: string) {
   return { ok: true };
 }
 
-export async function addPlayerAction(teamId: string, name: string) {
+export async function addPlayerAction(teamId: string, name: string, number?: number | null) {
   const trimmed = name.trim();
   if (!trimmed) return { error: "El jugador necesita un nombre." };
   const team = await prisma.team.findUnique({
@@ -201,42 +202,73 @@ export async function addPlayerAction(teamId: string, name: string) {
   if (!team) return { error: "Equipo no encontrado." };
   const access = await requireTournamentMutation(team.tournamentId);
   if (!access.ok) return { error: access.error };
-  const nextNumber = team.players.reduce((max, player) => Math.max(max, player.number ?? 0), 0) + 1;
+  const parsedNumber = parsePlayerNumber(number);
+  if (parsedNumber.error) return { error: parsedNumber.error };
+  const assigned =
+    parsedNumber.value ?? team.players.reduce((max, player) => Math.max(max, player.number ?? 0), 0) + 1;
+  if (team.players.some((player) => player.number === assigned)) {
+    return { error: `El dorsal ${assigned} ya está en este equipo.` };
+  }
   await prisma.player.create({
-    data: { name: trimmed, number: nextNumber, teamId },
+    data: { name: trimmed, number: assigned, teamId },
   });
   revalidateRoster(team.tournamentId);
   return { ok: true };
 }
 
-export async function renamePlayerAction(playerId: string, name: string) {
+export async function updatePlayerAction(playerId: string, name: string, number?: number | null) {
   const trimmed = name.trim();
   if (!trimmed) return { error: "El jugador necesita un nombre." };
   const player = await prisma.player.findUnique({
     where: { id: playerId },
-    include: { team: true },
+    include: { team: { include: { players: true } } },
   });
   if (!player) return { error: "Jugador no encontrado." };
   const access = await requireTournamentMutation(player.team.tournamentId);
   if (!access.ok) return { error: access.error };
+  const parsedNumber = parsePlayerNumber(number);
+  if (parsedNumber.error) return { error: parsedNumber.error };
+  if (
+    parsedNumber.value != null &&
+    player.team.players.some((item) => item.id !== playerId && item.number === parsedNumber.value)
+  ) {
+    return { error: `El dorsal ${parsedNumber.value} ya está en este equipo.` };
+  }
   await prisma.player.update({
     where: { id: playerId },
-    data: { name: trimmed },
+    data: { name: trimmed, number: parsedNumber.value },
   });
   revalidateRoster(player.team.tournamentId);
   return { ok: true };
 }
 
+export async function renamePlayerAction(playerId: string, name: string) {
+  const player = await prisma.player.findUnique({
+    where: { id: playerId },
+    select: { number: true },
+  });
+  if (!player) return { error: "Jugador no encontrado." };
+  return updatePlayerAction(playerId, name, player.number);
+}
+
+function parsePlayerNumber(value?: number | null): { value: number | null; error?: undefined } | { error: string; value?: undefined } {
+  if (value == null || Number.isNaN(value)) return { value: null };
+  if (!Number.isInteger(value) || value < 1 || value > 99) {
+    return { error: "El dorsal debe ser un número entre 1 y 99." };
+  }
+  return { value };
+}
+
 export async function deletePlayerAction(playerId: string) {
   const player = await prisma.player.findUnique({
     where: { id: playerId },
-    include: { team: true, _count: { select: { goals: true } } },
+    include: { team: true, _count: { select: { goals: true, cards: true } } },
   });
   if (!player) return { error: "Jugador no encontrado." };
   const access = await requireTournamentMutation(player.team.tournamentId);
   if (!access.ok) return { error: access.error };
-  if (player._count.goals > 0) {
-    return { error: "No se puede eliminar: ese jugador ya tiene goles. Edita el partido primero." };
+  if (player._count.goals > 0 || player._count.cards > 0) {
+    return { error: "No se puede eliminar: ese jugador ya tiene goles o tarjetas. Edita el partido primero." };
   }
   await prisma.player.delete({ where: { id: playerId } });
   revalidateRoster(player.team.tournamentId);

@@ -21,6 +21,7 @@ export type TournamentConfig = {
   maxMatchesPerDay: number;
   matchDurationMinutes: number;
   startTime: string;
+  venue?: string;
   teams: TeamInput[];
 };
 
@@ -62,6 +63,7 @@ export type StandingRow = {
 export type ScorerRow = {
   playerId: string;
   playerName: string;
+  playerNumber?: number | null;
   teamId: string;
   teamName: string;
   goals: number;

@@ -37,6 +37,12 @@ enum MatchPhase {
 enum MatchStatus {
   SCHEDULED
   PLAYED
+  WALKOVER
+}
+
+enum CardType {
+  YELLOW
+  RED
 }
 
 enum KnockoutRound {
@@ -75,6 +81,7 @@ model Tournament {
   maxMatchesPerDay     Int              @default(4)
   matchDurationMinutes Int              @default(40)
   startTime            String           @default("09:00")
+  venue                String?
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
   teams                Team[]
@@ -115,6 +122,7 @@ model Player {
   teamId String
   team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
   goals  Goal[]
+  cards  MatchCard[]
 }
 
 model Group {
@@ -143,11 +151,15 @@ model Match {
   round         Int
   knockoutRound KnockoutRound?
   scheduledAt   DateTime
+  venue         String?
   status        MatchStatus    @default(SCHEDULED)
   homeScore     Int?
   awayScore     Int?
+  homePenalties Int?
+  awayPenalties Int?
   winnerId      String?
   goals         Goal[]
+  cards         MatchCard[]
   scoresheet    MatchScoresheet?
 
   @@index([tournamentId, scheduledAt])
@@ -161,6 +173,21 @@ model MatchScoresheet {
   fileName   String
   data       Bytes
   uploadedAt DateTime @default(now())
+}
+
+model MatchCard {
+  id       String   @id @default(cuid())
+  matchId  String
+  match    Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerId String
+  player   Player   @relation(fields: [playerId], references: [id], onDelete: Restrict)
+  teamId   String
+  type     CardType
+  minute   Int?
+  paid     Boolean  @default(false)
+
+  @@index([matchId])
+  @@index([playerId])
 }
 
 model Goal {

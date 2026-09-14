@@ -1,11 +1,13 @@
 import ExcelJS from "exceljs";
 import {
+  cardLabel,
   formatDate,
   formatDateTime,
   formatLabel,
   knockoutLabel,
   nextPhaseLabel,
   phaseLabel,
+  playerLabel,
   playingDaysLabel,
   scoreLabel,
   statusLabel,
@@ -68,6 +70,7 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
       ["Fin", formatDate(tournament.endDate)],
       ["Días de juego", playingDaysLabel(tournament.playingDays)],
       ["Hora de inicio", tournament.startTime],
+      ["Cancha / sede", tournament.venue ?? "—"],
       ["Partidos por día", tournament.maxMatchesPerDay],
       ["Duración (min)", tournament.matchDurationMinutes],
       ["Siguiente fase", tournament.format === "GROUPS" ? nextPhaseLabel(tournament.nextPhase) : "—"],
@@ -95,16 +98,21 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
   addSheet(
     workbook,
     "Calendario",
-    ["Fecha", "Fase", "Grupo", "Ronda", "Local", "Visitante", "Marcador", "Estado", "Planilla"],
+    ["Fecha", "Fase", "Grupo", "Ronda", "Cancha", "Local", "Visitante", "Marcador", "Estado", "Planilla"],
     tournament.matches.map((match) => [
       formatDateTime(match.scheduledAt),
       phaseLabel(match.phase),
       match.group?.name ?? "—",
       match.knockoutRound ? knockoutLabel(match.knockoutRound) : `Jornada ${match.round}`,
+      match.venue ?? tournament.venue ?? "—",
       match.homeTeam.name,
       match.awayTeam.name,
-      scoreLabel(match.homeScore, match.awayScore),
-      match.status === "PLAYED" ? "Jugado" : "Programado",
+      scoreLabel(match.homeScore, match.awayScore, {
+        homePenalties: match.homePenalties,
+        awayPenalties: match.awayPenalties,
+        walkover: match.status === "WALKOVER",
+      }),
+      match.status === "WALKOVER" ? "W.O." : match.status === "PLAYED" ? "Jugado" : "Programado",
       match.scoresheet ? "Sí" : "No",
     ]),
   );
@@ -118,7 +126,7 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
         formatDateTime(match.scheduledAt),
         match.homeTeam.name,
         match.awayTeam.name,
-        goal.player.name,
+        playerLabel(goal.player.name, goal.player.number),
         tournament.teams.find((team) => team.id === goal.teamId)?.name ?? "",
         goal.minute ?? "",
       ]),
@@ -154,7 +162,12 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
     workbook,
     "Goleadores",
     ["Pos", "Jugador", "Equipo", "Goles"],
-    scorersFor(tournament).map((row, index) => [index + 1, row.playerName, row.teamName, row.goals]),
+    scorersFor(tournament).map((row, index) => [
+      index + 1,
+      playerLabel(row.playerName, row.playerNumber),
+      row.teamName,
+      row.goals,
+    ]),
   );
 
   addSheet(
@@ -169,6 +182,24 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
       row.cleanSheets,
       row.average,
     ]),
+  );
+
+  addSheet(
+    workbook,
+    "Tarjetas",
+    ["Fecha", "Local", "Visitante", "Jugador", "Equipo", "Tipo", "Minuto", "Pago"],
+    tournament.matches.flatMap((match) =>
+      match.cards.map((card) => [
+        formatDateTime(match.scheduledAt),
+        match.homeTeam.name,
+        match.awayTeam.name,
+        playerLabel(card.player.name, card.player.number),
+        tournament.teams.find((team) => team.id === card.teamId)?.name ?? "",
+        cardLabel(card.type),
+        card.minute ?? "",
+        card.type === "YELLOW" ? (card.paid ? "Pagada" : "Sin pagar") : "",
+      ]),
+    ),
   );
 
   const buffer = await workbook.xlsx.writeBuffer();

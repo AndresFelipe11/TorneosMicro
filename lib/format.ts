@@ -100,7 +100,28 @@ export function formatTime(value: Date | string) {
   }).format(date);
 }
 
-export function scoreLabel(home?: number | null, away?: number | null) {
+export function scoreLabel(
+  home?: number | null,
+  away?: number | null,
+  extra?: {
+    homePenalties?: number | null;
+    awayPenalties?: number | null;
+    walkover?: boolean;
+  },
+) {
   if (home == null || away == null) return "vs";
-  return `${home} – ${away}`;
+  let label = `${home} – ${away}`;
+  if (extra?.homePenalties != null && extra?.awayPenalties != null) {
+    label += ` (${extra.homePenalties}–${extra.awayPenalties} pen.)`;
+  }
+  if (extra?.walkover) label += " W.O.";
+  return label;
+}
+
+export function playerLabel(name: string, number?: number | null) {
+  return number == null ? name : `#${number} ${name}`;
+}
+
+export function cardLabel(type: "YELLOW" | "RED") {
+  return type === "RED" ? "Roja" : "Amarilla";
 }

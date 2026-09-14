@@ -42,6 +42,7 @@ export function Wizard() {
     maxMatchesPerDay: 4,
     matchDurationMinutes: 40,
     startTime: "09:00",
+    venue: "",
     teams: [emptyTeam(), emptyTeam(), emptyTeam(), emptyTeam()],
   });
 
@@ -273,6 +274,14 @@ export function Wizard() {
             </Field>
             <Field label="Hora de inicio">
               <input className="field" type="time" value={config.startTime} onChange={(e) => update("startTime", e.target.value)} />
+            </Field>
+            <Field label="Cancha / sede">
+              <input
+                className="field"
+                placeholder="Opcional"
+                value={config.venue ?? ""}
+                onChange={(e) => update("venue", e.target.value)}
+              />
             </Field>
           </div>
           <p className="text-sm text-muted">

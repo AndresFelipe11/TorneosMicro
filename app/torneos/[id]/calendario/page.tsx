@@ -13,7 +13,7 @@ export default async function CalendarPage({ params }: { params: Promise<{ id: s
       <h1 className="display text-4xl">{tournament.name}</h1>
       <p className="mb-4 text-muted">Calendario generado según las fechas y los días de juego.</p>
       <TournamentTabs id={id} />
-      <MatchList matches={tournament.matches} hrefFor={(matchId) => `/torneos/${id}/partidos/${matchId}`} />
+      <MatchList matches={tournament.matches} hrefFor={(matchId) => `/torneos/${id}/partidos/${matchId}`} tournamentVenue={tournament.venue} />
     </div>
   );
 }

@@ -10,14 +10,17 @@ export function RescheduleForm({
   awayTeam,
   currentScheduledAt,
   initialLocal,
+  venue: initialVenue,
 }: {
   matchId: string;
   homeTeam: string;
   awayTeam: string;
   currentScheduledAt: Date | string;
   initialLocal: string;
+  venue: string;
 }) {
   const [value, setValue] = useState(initialLocal);
+  const [venue, setVenue] = useState(initialVenue);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -26,7 +29,7 @@ export function RescheduleForm({
     setError(null);
     setMessage(null);
     startTransition(async () => {
-      const result = await rescheduleMatchAction({ matchId, scheduledAt: value });
+      const result = await rescheduleMatchAction({ matchId, scheduledAt: value, venue });
       if (result.error) {
         setError(result.error);
         return;
@@ -56,6 +59,10 @@ export function RescheduleForm({
           value={value}
           onChange={(event) => setValue(event.target.value)}
         />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-sm font-semibold">Cancha / sede</span>
+        <input className="field" value={venue} onChange={(event) => setVenue(event.target.value)} />
       </label>
       {error ? <p className="font-semibold text-red-400">{error}</p> : null}
       {message ? <p className="font-semibold text-lime">{message}</p> : null}
