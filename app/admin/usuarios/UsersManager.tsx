@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { createAdminUserAction, deleteAdminUserAction, updateAdminUserAction } from "@/lib/actions/users";
+import { PasswordField } from "@/components/PasswordField";
 
 type UserRow = {
   id: string;
@@ -100,13 +101,11 @@ export function UsersManager({
           </label>
           <label className="block space-y-1">
             <span className="text-sm font-semibold">Contraseña</span>
-            <input
-              className="field"
+            <PasswordField
               minLength={8}
-              type="password"
-              value={password}
               onChange={(event) => setPassword(event.target.value)}
               required
+              value={password}
             />
           </label>
           <label className="block space-y-1">
@@ -235,13 +234,11 @@ function UserCard({
         </label>
         <label className="block space-y-1 sm:col-span-2">
           <span className="text-sm font-semibold">Nueva contraseña (opcional)</span>
-          <input
-            className="field"
+          <PasswordField
             minLength={8}
-            type="password"
-            value={password}
             onChange={(event) => setPassword(event.target.value)}
             placeholder="Déjala vacía para no cambiarla"
+            value={password}
           />
         </label>
       </div>
