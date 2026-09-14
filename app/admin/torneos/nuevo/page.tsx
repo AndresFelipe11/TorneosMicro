@@ -1,6 +1,9 @@
+import { requireGlobalAdmin } from "@/lib/authz";
 import { Wizard } from "./Wizard";
 
-export default function NewTournamentPage() {
+export default async function NewTournamentPage() {
+  await requireGlobalAdmin();
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="display text-4xl">Nuevo torneo</h1>

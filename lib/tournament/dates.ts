@@ -35,6 +35,31 @@ export function dayKey(date: Date): string {
   return toBogotaDateString(date);
 }
 
+export function toBogotaDateTimeLocal(date: Date): string {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Bogota",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(date);
+  const get = (type: string) => parts.find((part) => part.type === type)?.value ?? "00";
+  return `${get("year")}-${get("month")}-${get("day")}T${get("hour")}:${get("minute")}`;
+}
+
+export function fromBogotaDateTimeLocal(value: string): Date | null {
+  const match = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})$/.exec(value.trim());
+  if (!match) return null;
+  return bogotaDateTime(match[1], Number(match[2]), Number(match[3]));
+}
+
+export function scheduleFromDate(startDate: string): Date {
+  const todayKey = toBogotaDateString(new Date());
+  return parseLocalDate(startDate > todayKey ? startDate : todayKey);
+}
+
 export function nextDateString(isoDate: string): string {
   const [year, month, day] = isoDate.split("-").map(Number);
   const next = new Date(Date.UTC(year, month - 1, day + 1));
@@ -51,7 +76,7 @@ export function buildSlots(config: {
   fromDate?: Date;
 }): Date[] {
   const { hours, minutes } = parseTime(config.startTime);
-  const gap = Math.max(config.matchDurationMinutes + 10, 20);
+  const gap = 60;
   const fromKey = config.fromDate ? toBogotaDateString(config.fromDate) : config.startDate;
   const slots: Date[] = [];
 

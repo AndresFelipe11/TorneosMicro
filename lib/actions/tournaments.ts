@@ -4,13 +4,13 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { KnockoutRound, MatchPhase } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/requireAdmin";
-import { parseLocalDate, toBogotaDateString } from "@/lib/tournament/dates";
+import { requireGlobalMutation, requireTournamentMutation } from "@/lib/authz";
+import { dayKey, fromBogotaDateTimeLocal, parseLocalDate, scheduleFromDate, toBogotaDateString } from "@/lib/tournament/dates";
 import { generateRoundRobin } from "@/lib/tournament/roundRobin";
 import { scheduleMatches } from "@/lib/tournament/schedule";
 import { generateKnockoutMatches, generateNextKnockout, pairQualified, qualifiedFromStandings } from "@/lib/tournament/knockout";
 import { validateConfig, withDistributedGroups } from "@/lib/tournament/generate";
-import type { GeneratedMatch, TournamentConfig } from "@/lib/tournament/types";
+import type { GeneratedMatch, TournamentConfig, UnscheduledMatch } from "@/lib/tournament/types";
 import { getTournament, standingsFor } from "@/lib/queries";
 import { readScoresheetFile } from "@/lib/scoresheet";
 
@@ -24,13 +24,15 @@ function revalidateTournament(id: string) {
   revalidatePath(`/torneos/${id}/valla`);
   revalidatePath(`/admin/torneos/${id}`);
   revalidatePath(`/admin/torneos/${id}/editar`);
+  revalidatePath(`/admin/torneos/${id}/calendario`);
 }
 
 export async function createTournamentAction(input: {
   config: TournamentConfig;
   matches: GeneratedMatch[];
 }) {
-  await requireAdmin();
+  const access = await requireGlobalMutation();
+  if (!access.ok) return { error: access.error };
   const config = withDistributedGroups(input.config);
   const error = validateConfig(config);
   if (error) return { error };
@@ -112,20 +114,207 @@ export async function createTournamentAction(input: {
 }
 
 export async function deleteTournamentAction(id: string) {
-  await requireAdmin();
+  const access = await requireGlobalMutation();
+  if (!access.ok) return { error: access.error };
   await prisma.tournament.delete({ where: { id } });
   revalidatePath("/");
   revalidatePath("/admin");
   redirect("/admin");
 }
 
-export async function updateMatchDateAction(matchId: string, scheduledAt: string) {
-  await requireAdmin();
-  const match = await prisma.match.update({
-    where: { id: matchId },
-    data: { scheduledAt: new Date(scheduledAt) },
+function scheduleConfigFrom(input: {
+  startDate: string;
+  endDate: string;
+  playingDays: number[];
+  maxMatchesPerDay: number;
+  matchDurationMinutes: number;
+  startTime: string;
+}):
+  | { error: string }
+  | {
+      startDate: string;
+      endDate: string;
+      playingDays: number[];
+      maxMatchesPerDay: number;
+      matchDurationMinutes: number;
+      startTime: string;
+    } {
+  const playingDays = [...new Set(input.playingDays)].filter((day) => day >= 0 && day <= 6).sort((a, b) => a - b);
+  const startTime = input.startTime.trim();
+  if (!/^\d{2}:\d{2}$/.test(startTime)) return { error: "La hora de inicio no es válida." };
+  if (!input.startDate || !input.endDate) return { error: "Indica las fechas de inicio y fin." };
+  if (input.endDate < input.startDate) return { error: "La fecha de fin no puede ser anterior al inicio." };
+  if (playingDays.length === 0) return { error: "Elige al menos un día de juego." };
+  if (input.maxMatchesPerDay < 1 || input.maxMatchesPerDay > 12) {
+    return { error: "Los partidos por día deben estar entre 1 y 12." };
+  }
+  if (input.matchDurationMinutes < 20 || input.matchDurationMinutes > 90) {
+    return { error: "La duración debe estar entre 20 y 90 minutos." };
+  }
+  return {
+    startDate: input.startDate,
+    endDate: input.endDate,
+    playingDays,
+    maxMatchesPerDay: input.maxMatchesPerDay,
+    matchDurationMinutes: input.matchDurationMinutes,
+    startTime,
+  };
+}
+
+function sameDayTeamConflict(
+  others: {
+    homeTeam: { id: string; name: string };
+    awayTeam: { id: string; name: string };
+    scheduledAt: Date;
+  }[],
+  homeTeam: { id: string; name: string },
+  awayTeam: { id: string; name: string },
+  when: Date,
+) {
+  const key = dayKey(when);
+  const clash = others.find((match) => {
+    if (dayKey(match.scheduledAt) !== key) return false;
+    const ids = [match.homeTeam.id, match.awayTeam.id];
+    return ids.includes(homeTeam.id) || ids.includes(awayTeam.id);
   });
+  if (!clash) return null;
+  const teamName =
+    clash.homeTeam.id === homeTeam.id || clash.awayTeam.id === homeTeam.id ? homeTeam.name : awayTeam.name;
+  return `${teamName} ya tiene partido ese día: ${clash.homeTeam.name} vs ${clash.awayTeam.name}.`;
+}
+
+export async function updateTournamentScheduleAction(input: {
+  tournamentId: string;
+  startDate: string;
+  endDate: string;
+  playingDays: number[];
+  maxMatchesPerDay: number;
+  matchDurationMinutes: number;
+  startTime: string;
+}): Promise<{ error: string; message?: undefined } | { error?: undefined; ok: true; moved: number; message: string }> {
+  const admin = await requireTournamentMutation(input.tournamentId);
+  if (!admin.ok) return { error: admin.error };
+  const tournament = await getTournament(input.tournamentId);
+  if (!tournament) return { error: "Torneo no encontrado." };
+  if (tournament.status === "FINISHED") return { error: "El torneo ya terminó." };
+
+  const config = scheduleConfigFrom(input);
+  if ("error" in config) return { error: config.error };
+
+  const pending = tournament.matches.filter((match) => match.status === "SCHEDULED");
+  const occupied = tournament.matches
+    .filter((match) => match.status === "PLAYED")
+    .map((match) => ({
+      homeTeamName: match.homeTeam.name,
+      awayTeamName: match.awayTeam.name,
+      scheduledAt: match.scheduledAt,
+    }));
+
+  const unscheduled: UnscheduledMatch[] = pending.map((match) => ({
+    id: match.id,
+    homeTeamName: match.homeTeam.name,
+    awayTeamName: match.awayTeam.name,
+    phase: match.phase,
+    round: match.round,
+    groupName: match.group?.name,
+    knockoutRound: match.knockoutRound ?? undefined,
+  }));
+
+  const scheduled =
+    unscheduled.length === 0
+      ? { matches: [] as GeneratedMatch[], error: undefined as string | undefined }
+      : scheduleMatches(
+          unscheduled,
+          {
+            ...config,
+            fromDate: scheduleFromDate(config.startDate),
+          },
+          occupied,
+        );
+
+  if (scheduled.error) return { error: scheduled.error };
+
+  await prisma.$transaction(async (tx) => {
+    await tx.tournament.update({
+      where: { id: tournament.id },
+      data: {
+        startDate: parseLocalDate(config.startDate),
+        endDate: parseLocalDate(config.endDate),
+        playingDays: config.playingDays,
+        maxMatchesPerDay: config.maxMatchesPerDay,
+        matchDurationMinutes: config.matchDurationMinutes,
+        startTime: config.startTime,
+      },
+    });
+
+    for (const match of scheduled.matches) {
+      if (!match.id) continue;
+      await tx.match.update({
+        where: { id: match.id },
+        data: { scheduledAt: new Date(match.scheduledAt) },
+      });
+    }
+  });
+
+  revalidateTournament(tournament.id);
+  return {
+    ok: true,
+    moved: scheduled.matches.length,
+    message:
+      scheduled.matches.length === 0
+        ? "Se actualizaron los días de juego. No había partidos pendientes por mover."
+        : `Se reprogramaron ${scheduled.matches.length} partidos pendientes.`,
+  };
+}
+
+export async function rescheduleMatchAction(input: {
+  matchId: string;
+  scheduledAt: string;
+}): Promise<{ error: string; message?: undefined } | { error?: undefined; ok: true; message: string }> {
+  const when = fromBogotaDateTimeLocal(input.scheduledAt);
+  if (!when || Number.isNaN(when.getTime())) {
+    return { error: "La fecha y hora no son válidas." };
+  }
+
+  const match = await prisma.match.findUnique({
+    where: { id: input.matchId },
+    include: {
+      homeTeam: true,
+      awayTeam: true,
+      tournament: {
+        include: {
+          matches: {
+            include: { homeTeam: true, awayTeam: true },
+          },
+        },
+      },
+    },
+  });
+  if (!match) return { error: "Partido no encontrado." };
+  const access = await requireTournamentMutation(match.tournamentId);
+  if (!access.ok) return { error: "Solo el administrador de este torneo puede reprogramar el partido." };
+  if (match.tournament.status === "FINISHED") return { error: "El torneo ya terminó." };
+  if (match.status === "PLAYED") {
+    return { error: "Ese partido ya se jugó. Si la hora real fue otra, ajústala al guardar el resultado." };
+  }
+
+  const conflict = sameDayTeamConflict(
+    match.tournament.matches.filter((item) => item.id !== match.id),
+    match.homeTeam,
+    match.awayTeam,
+    when,
+  );
+  if (conflict) return { error: conflict };
+
+  await prisma.match.update({
+    where: { id: match.id },
+    data: { scheduledAt: when },
+  });
+
   revalidateTournament(match.tournamentId);
+  revalidatePath(`/admin/torneos/${match.tournamentId}/partidos/${match.id}`);
+  revalidatePath(`/torneos/${match.tournamentId}/partidos/${match.id}`);
+  return { ok: true, message: "El partido quedó reprogramado." };
 }
 
 async function refreshTournamentStatus(tournamentId: string) {
@@ -150,12 +339,13 @@ export async function saveMatchResultAction(input: {
   scoresheet?: File | null;
   removeScoresheet?: boolean;
 }) {
-  await requireAdmin();
   const match = await prisma.match.findUnique({
     where: { id: input.matchId },
     include: { tournament: true },
   });
   if (!match) return { error: "Partido no encontrado." };
+  const access = await requireTournamentMutation(match.tournamentId);
+  if (!access.ok) return { error: access.error };
   if (input.homeScore < 0 || input.awayScore < 0) return { error: "El marcador no puede ser negativo." };
 
   let winnerId = input.winnerId ?? null;
@@ -225,7 +415,8 @@ function toDateInput(date: Date) {
 }
 
 export async function advancePhaseAction(tournamentId: string) {
-  await requireAdmin();
+  const access = await requireTournamentMutation(tournamentId);
+  if (!access.ok) return { error: access.error };
   const tournament = await getTournament(tournamentId);
   if (!tournament) return { error: "Torneo no encontrado." };
 
@@ -392,7 +583,8 @@ export async function advancePhaseAction(tournamentId: string) {
 }
 
 export async function finishTournamentAction(tournamentId: string) {
-  await requireAdmin();
+  const access = await requireTournamentMutation(tournamentId);
+  if (!access.ok) return { error: access.error };
   await prisma.tournament.update({ where: { id: tournamentId }, data: { status: "FINISHED" } });
   revalidateTournament(tournamentId);
 }

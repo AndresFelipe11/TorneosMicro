@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { MatchPhase } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { requireTournamentMutation } from "@/lib/authz";
 import { getTournament } from "@/lib/queries";
 import { scheduleMatches } from "@/lib/tournament/schedule";
 import type { MatchPhase as Phase, UnscheduledMatch } from "@/lib/tournament/types";
@@ -18,6 +18,7 @@ function revalidateRoster(id: string) {
   revalidatePath(`/torneos/${id}/valla`);
   revalidatePath(`/admin/torneos/${id}`);
   revalidatePath(`/admin/torneos/${id}/editar`);
+  revalidatePath(`/admin/torneos/${id}/calendario`);
 }
 
 function dateField(value: Date) {
@@ -31,7 +32,8 @@ function leaguePhase(format: "ROUND_ROBIN" | "GROUPS" | "QUADRANGULAR"): Phase {
 }
 
 export async function updateTournamentNameAction(tournamentId: string, name: string) {
-  await requireAdmin();
+  const access = await requireTournamentMutation(tournamentId);
+  if (!access.ok) return { error: access.error };
   const trimmed = name.trim();
   if (!trimmed) return { error: "El torneo necesita un nombre." };
   await prisma.tournament.update({ where: { id: tournamentId }, data: { name: trimmed } });
@@ -45,7 +47,8 @@ export async function addTeamAction(input: {
   groupId?: string | null;
   players: string[];
 }) {
-  await requireAdmin();
+  const access = await requireTournamentMutation(input.tournamentId);
+  if (!access.ok) return { error: access.error };
   const tournament = await getTournament(input.tournamentId);
   if (!tournament) return { error: "Torneo no encontrado." };
   if (tournament.status === "FINISHED") return { error: "El torneo ya terminó." };
@@ -144,7 +147,6 @@ export async function addTeamAction(input: {
 }
 
 export async function renameTeamAction(teamId: string, name: string) {
-  await requireAdmin();
   const trimmed = name.trim();
   if (!trimmed) return { error: "El equipo necesita un nombre." };
   const team = await prisma.team.findUnique({
@@ -152,6 +154,8 @@ export async function renameTeamAction(teamId: string, name: string) {
     include: { tournament: { include: { teams: true } } },
   });
   if (!team) return { error: "Equipo no encontrado." };
+  const access = await requireTournamentMutation(team.tournamentId);
+  if (!access.ok) return { error: access.error };
   const clash = team.tournament.teams.some(
     (item) => item.id !== teamId && item.name.toLowerCase() === trimmed.toLowerCase(),
   );
@@ -162,7 +166,6 @@ export async function renameTeamAction(teamId: string, name: string) {
 }
 
 export async function deleteTeamAction(teamId: string) {
-  await requireAdmin();
   const team = await prisma.team.findUnique({
     where: { id: teamId },
     include: {
@@ -171,6 +174,8 @@ export async function deleteTeamAction(teamId: string) {
     },
   });
   if (!team) return { error: "Equipo no encontrado." };
+  const access = await requireTournamentMutation(team.tournamentId);
+  if (!access.ok) return { error: access.error };
 
   const matchIds = [...team.homeMatches, ...team.awayMatches].map((match) => match.id);
 
@@ -186,7 +191,6 @@ export async function deleteTeamAction(teamId: string) {
 }
 
 export async function addPlayerAction(teamId: string, name: string) {
-  await requireAdmin();
   const trimmed = name.trim();
   if (!trimmed) return { error: "El jugador necesita un nombre." };
   const team = await prisma.team.findUnique({
@@ -194,6 +198,8 @@ export async function addPlayerAction(teamId: string, name: string) {
     include: { players: true },
   });
   if (!team) return { error: "Equipo no encontrado." };
+  const access = await requireTournamentMutation(team.tournamentId);
+  if (!access.ok) return { error: access.error };
   const nextNumber = team.players.reduce((max, player) => Math.max(max, player.number ?? 0), 0) + 1;
   await prisma.player.create({
     data: { name: trimmed, number: nextNumber, teamId },
@@ -203,25 +209,31 @@ export async function addPlayerAction(teamId: string, name: string) {
 }
 
 export async function renamePlayerAction(playerId: string, name: string) {
-  await requireAdmin();
   const trimmed = name.trim();
   if (!trimmed) return { error: "El jugador necesita un nombre." };
-  const player = await prisma.player.update({
+  const player = await prisma.player.findUnique({
+    where: { id: playerId },
+    include: { team: true },
+  });
+  if (!player) return { error: "Jugador no encontrado." };
+  const access = await requireTournamentMutation(player.team.tournamentId);
+  if (!access.ok) return { error: access.error };
+  await prisma.player.update({
     where: { id: playerId },
     data: { name: trimmed },
-    include: { team: true },
   });
   revalidateRoster(player.team.tournamentId);
   return { ok: true };
 }
 
 export async function deletePlayerAction(playerId: string) {
-  await requireAdmin();
   const player = await prisma.player.findUnique({
     where: { id: playerId },
     include: { team: true, _count: { select: { goals: true } } },
   });
   if (!player) return { error: "Jugador no encontrado." };
+  const access = await requireTournamentMutation(player.team.tournamentId);
+  if (!access.ok) return { error: access.error };
   if (player._count.goals > 0) {
     return { error: "No se puede eliminar: ese jugador ya tiene goles. Edita el partido primero." };
   }

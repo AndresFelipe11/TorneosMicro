@@ -25,6 +25,7 @@ export type TournamentConfig = {
 };
 
 export type UnscheduledMatch = {
+  id?: string;
   homeTeamName: string;
   awayTeamName: string;
   phase: MatchPhase;

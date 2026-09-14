@@ -5,17 +5,7 @@ import { createTournamentAction } from "@/lib/actions/tournaments";
 import { generateTournamentSchedule, withDistributedGroups } from "@/lib/tournament/generate";
 import { groupNameAt } from "@/lib/tournament/groups";
 import type { NextPhase, TeamInput, TournamentConfig, TournamentFormat } from "@/lib/tournament/types";
-import { formatDateTime, phaseLabel } from "@/lib/format";
-
-const DAYS = [
-  { value: 0, label: "Domingo" },
-  { value: 1, label: "Lunes" },
-  { value: 2, label: "Martes" },
-  { value: 3, label: "Miércoles" },
-  { value: 4, label: "Jueves" },
-  { value: 5, label: "Viernes" },
-  { value: 6, label: "Sábado" },
-];
+import { formatDateTime, phaseLabel, WEEKDAYS } from "@/lib/format";
 
 function toInputDate(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -257,7 +247,7 @@ export function Wizard() {
         <div className="card space-y-4 p-5">
           <p className="text-sm font-semibold">Días de juego</p>
           <div className="flex flex-wrap gap-2">
-            {DAYS.map((day) => (
+            {WEEKDAYS.map((day) => (
               <button
                 key={day.value}
                 type="button"
@@ -270,7 +260,7 @@ export function Wizard() {
               </button>
             ))}
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Partidos por día">
               <input
                 className="field"
@@ -284,17 +274,10 @@ export function Wizard() {
             <Field label="Hora de inicio">
               <input className="field" type="time" value={config.startTime} onChange={(e) => update("startTime", e.target.value)} />
             </Field>
-            <Field label="Duración (min)">
-              <input
-                className="field"
-                type="number"
-                min={20}
-                max={90}
-                value={config.matchDurationMinutes}
-                onChange={(e) => update("matchDurationMinutes", Number(e.target.value))}
-              />
-            </Field>
           </div>
+          <p className="text-sm text-muted">
+            Los partidos se programan cada hora. Si el primero es a las 7:00, el siguiente queda a las 8:00.
+          </p>
         </div>
       ) : null}
 

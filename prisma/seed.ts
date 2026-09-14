@@ -7,13 +7,16 @@ const prisma = new PrismaClient();
 
 async function main() {
   const email = (process.env.ADMIN_EMAIL ?? "admin@torneosmicro.local").toLowerCase();
-  const password = process.env.ADMIN_PASSWORD ?? "admin1234";
+  const password = process.env.ADMIN_PASSWORD;
+  if (!password) {
+    throw new Error("Define ADMIN_PASSWORD en .env");
+  }
   const passwordHash = await bcrypt.hash(password, 10);
 
   await prisma.user.upsert({
     where: { email },
-    update: { passwordHash, name: "Administrador" },
-    create: { email, passwordHash, name: "Administrador" },
+    update: { passwordHash, name: "Administrador", role: "GLOBAL_ADMIN" },
+    create: { email, passwordHash, name: "Administrador", role: "GLOBAL_ADMIN" },
   });
 
   const existing = await prisma.tournament.findFirst({

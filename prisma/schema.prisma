@@ -46,12 +46,19 @@ enum KnockoutRound {
   F
 }
 
+enum UserRole {
+  GLOBAL_ADMIN
+  TOURNAMENT_ADMIN
+}
+
 model User {
-  id           String   @id @default(cuid())
-  email        String   @unique
+  id           String            @id @default(cuid())
+  email        String            @unique
   name         String
   passwordHash String
-  createdAt    DateTime @default(now())
+  role         UserRole          @default(TOURNAMENT_ADMIN)
+  createdAt    DateTime          @default(now())
+  tournaments  TournamentAdmin[]
 }
 
 model Tournament {
@@ -73,6 +80,18 @@ model Tournament {
   teams                Team[]
   groups               Group[]
   matches              Match[]
+  admins               TournamentAdmin[]
+}
+
+model TournamentAdmin {
+  userId       String
+  tournamentId String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@id([userId, tournamentId])
+  @@index([tournamentId])
 }
 
 model Team {

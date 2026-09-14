@@ -3,15 +3,10 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { saveMatchResultAction } from "@/lib/actions/tournaments";
+import { fromBogotaDateTimeLocal, toBogotaDateTimeLocal } from "@/lib/tournament/dates";
 
 type Player = { id: string; name: string; teamId: string };
 type GoalDraft = { playerId: string; teamId: string; minute: string };
-
-function toDateTimeLocal(value: Date | string) {
-  const date = typeof value === "string" ? new Date(value) : value;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
 
 export function ResultForm({
   matchId,
@@ -41,7 +36,7 @@ export function ResultForm({
   const [homeScore, setHomeScore] = useState(String(initial.homeScore ?? 0));
   const [awayScore, setAwayScore] = useState(String(initial.awayScore ?? 0));
   const [winnerId, setWinnerId] = useState(initial.winnerId ?? "");
-  const [scheduledAt, setScheduledAt] = useState(toDateTimeLocal(initial.scheduledAt));
+  const [scheduledAt, setScheduledAt] = useState(toBogotaDateTimeLocal(new Date(initial.scheduledAt)));
   const [goals, setGoals] = useState<GoalDraft[]>(
     initial.goals.map((goal) => ({
       playerId: goal.playerId,
@@ -67,12 +62,17 @@ export function ResultForm({
   function submit() {
     setError(null);
     startTransition(async () => {
+      const when = fromBogotaDateTimeLocal(scheduledAt);
+      if (!when) {
+        setError("La fecha y hora no son válidas.");
+        return;
+      }
       const result = await saveMatchResultAction({
         matchId,
         homeScore: Number(homeScore),
         awayScore: Number(awayScore),
         winnerId: knockout && isDraw ? winnerId : undefined,
-        scheduledAt: new Date(scheduledAt).toISOString(),
+        scheduledAt: when.toISOString(),
         goals: goals.map((goal) => ({
           playerId: goal.playerId,
           teamId: goal.teamId,
@@ -102,7 +102,7 @@ export function ResultForm({
         </label>
       </div>
       <label className="block space-y-1">
-        <span className="text-sm font-semibold">Fecha y hora</span>
+        <span className="text-sm font-semibold">Fecha y hora (Bogotá)</span>
         <input className="field" type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
       </label>
       {knockout && isDraw ? (

@@ -15,7 +15,7 @@ Aplicativo web para programar torneos de microfútbol: todos contra todos, fases
 4. Carga el admin y el torneo demo: `npx prisma db seed`
 5. Arranca: `npm run dev`
 
-Usuario demo: `admin@torneosmicro.local` / `admin1234`
+El primer usuario se crea con `ADMIN_EMAIL` y `ADMIN_PASSWORD` de `.env` y queda como **admin global**. Ese usuario puede crear más administradores: globales (todos los torneos) o de un torneo (solo los asignados).
 
 ## Scripts
 

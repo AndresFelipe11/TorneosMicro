@@ -1,10 +1,12 @@
 import { notFound } from "next/navigation";
 import { getTournament } from "@/lib/queries";
+import { requireTournamentPage } from "@/lib/authz";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { RosterEditor } from "./RosterEditor";
 
 export default async function EditTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  await requireTournamentPage(id);
   const tournament = await getTournament(id);
   if (!tournament) notFound();
 

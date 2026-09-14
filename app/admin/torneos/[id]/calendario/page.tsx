@@ -1,0 +1,60 @@
+import { notFound } from "next/navigation";
+import { getTournament } from "@/lib/queries";
+import { requireTournamentPage } from "@/lib/authz";
+import { toBogotaDateString } from "@/lib/tournament/dates";
+import { TournamentTabs } from "@/components/TournamentTabs";
+import { MatchList } from "@/components/MatchList";
+import { ScheduleEditor } from "./ScheduleEditor";
+
+export default async function AdminCalendarPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  await requireTournamentPage(id);
+  const tournament = await getTournament(id);
+  if (!tournament) notFound();
+
+  const pending = tournament.matches.filter((match) => match.status === "SCHEDULED");
+  const played = tournament.matches.filter((match) => match.status === "PLAYED");
+
+  return (
+    <div className="mx-auto max-w-6xl px-4 py-8">
+      <h1 className="display text-4xl">{tournament.name}</h1>
+      <p className="mb-4 text-muted">
+        Cambia los días del torneo o entra a un partido para reprogramarlo si un equipo no puede.
+      </p>
+      <TournamentTabs id={id} admin />
+      <ScheduleEditor
+        tournamentId={tournament.id}
+        finished={tournament.status === "FINISHED"}
+        pendingCount={pending.length}
+        playedCount={played.length}
+        initial={{
+          startDate: toBogotaDateString(tournament.startDate),
+          endDate: toBogotaDateString(tournament.endDate),
+          playingDays: tournament.playingDays,
+          maxMatchesPerDay: tournament.maxMatchesPerDay,
+          matchDurationMinutes: tournament.matchDurationMinutes,
+          startTime: tournament.startTime,
+        }}
+        pending={pending.map((match) => ({
+          id: match.id,
+          homeTeamName: match.homeTeam.name,
+          awayTeamName: match.awayTeam.name,
+          phase: match.phase,
+          round: match.round,
+          groupName: match.group?.name,
+          knockoutRound: match.knockoutRound ?? undefined,
+        }))}
+        occupied={played.map((match) => ({
+          homeTeamName: match.homeTeam.name,
+          awayTeamName: match.awayTeam.name,
+          scheduledAt: match.scheduledAt.toISOString(),
+        }))}
+      />
+      <h2 className="display mb-3 mt-8 text-2xl">Partidos</h2>
+      <MatchList
+        matches={tournament.matches}
+        hrefFor={(matchId) => `/admin/torneos/${id}/partidos/${matchId}`}
+      />
+    </div>
+  );
+}

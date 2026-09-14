@@ -17,7 +17,7 @@ export function AdvanceButton({ tournamentId }: { tournamentId: string }) {
           setMessage(null);
           startTransition(async () => {
             const result = await advancePhaseAction(tournamentId);
-            setMessage(result.error ?? result.message ?? "Listo.");
+            setMessage(result.error ?? ("message" in result ? result.message : undefined) ?? "Listo.");
           });
         }}
       >
@@ -35,7 +35,7 @@ export function FinishButton({ tournamentId }: { tournamentId: string }) {
       type="button"
       className="btn btn-dark"
       disabled={pending}
-      onClick={() => startTransition(() => finishTournamentAction(tournamentId))}
+      onClick={() => startTransition(() => void finishTournamentAction(tournamentId))}
     >
       Marcar finalizado
     </button>
@@ -51,7 +51,9 @@ export function DeleteTournamentButton({ tournamentId }: { tournamentId: string 
       disabled={pending}
       onClick={() => {
         if (!confirm("¿Eliminar este torneo y todos sus partidos?")) return;
-        startTransition(() => deleteTournamentAction(tournamentId));
+        startTransition(() => {
+          void deleteTournamentAction(tournamentId);
+        });
       }}
     >
       Eliminar torneo

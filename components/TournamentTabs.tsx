@@ -9,6 +9,7 @@ export function TournamentTabs({ id, admin = false }: { id: string; admin?: bool
   const tabs = admin
     ? [
         { href: base, label: "Gestionar" },
+        { href: `${base}/calendario`, label: "Calendario" },
         { href: `${base}/editar`, label: "Equipos" },
         { href: `/torneos/${id}`, label: "Vista pública" },
       ]

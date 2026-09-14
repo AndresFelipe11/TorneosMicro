@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { auth } from "@/auth";
+import { getAdminUser, isGlobalAdmin } from "@/lib/authz";
 import { logoutAction } from "@/lib/actions/auth";
 
 export async function Header() {
-  const session = await auth();
+  const admin = await getAdminUser();
 
   return (
     <header className="pitch-bg text-cream">
@@ -21,11 +21,16 @@ export async function Header() {
           <Link href="/" className="text-cream/85 hover:text-lime">
             Torneos
           </Link>
-          {session ? (
+          {admin ? (
             <>
               <Link href="/admin" className="text-cream/85 hover:text-lime">
                 Admin
               </Link>
+              {isGlobalAdmin(admin) ? (
+                <Link href="/admin/usuarios" className="text-cream/85 hover:text-lime">
+                  Usuarios
+                </Link>
+              ) : null}
               <form action={logoutAction}>
                 <button className="btn btn-ghost text-sm px-3 py-1.5 text-cream" type="submit">
                   Salir

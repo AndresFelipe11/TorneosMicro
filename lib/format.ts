@@ -38,6 +38,8 @@ const knockoutLabels: Record<KnockoutRound, string> = {
 const dayLabels = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const dayFullLabels = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
 
+export const WEEKDAYS = dayFullLabels.map((label, value) => ({ value, label }));
+
 export function formatLabel(format: TournamentFormat) {
   return formatLabels[format];
 }
