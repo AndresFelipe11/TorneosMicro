@@ -60,6 +60,17 @@ export function scheduleFromDate(startDate: string): Date {
   return parseLocalDate(startDate > todayKey ? startDate : todayKey);
 }
 
+export function startOfNextWeekBogota(from = new Date()): Date {
+  const today = toBogotaDateString(from);
+  const weekday = weekdayBogota(today);
+  const daysUntilNextMonday = weekday === 0 ? 1 : 8 - weekday;
+  let cursor = today;
+  for (let i = 0; i < daysUntilNextMonday; i++) {
+    cursor = nextDateString(cursor);
+  }
+  return parseLocalDate(cursor);
+}
+
 export function nextDateString(isoDate: string): string {
   const [year, month, day] = isoDate.split("-").map(Number);
   const next = new Date(Date.UTC(year, month - 1, day + 1));

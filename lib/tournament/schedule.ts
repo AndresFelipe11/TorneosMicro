@@ -12,6 +12,9 @@ export type OccupiedMatch = {
   scheduledAt: Date | string;
 };
 
+const NOT_ENOUGH_SLOTS =
+  "No caben todos los partidos en las franjas libres. Amplía la fecha de fin del torneo, añade otro día de la semana para jugar, o programa un partido más por día.";
+
 function phaseOrder(phase: UnscheduledMatch["phase"]): number {
   if (phase === "GROUP" || phase === "ROUND_ROBIN") return 0;
   if (phase === "QUADRANGULAR") return 1;
@@ -62,7 +65,7 @@ export function scheduleMatches(
       matches: [],
       slotsAvailable: freeSlots,
       slotsNeeded: needed,
-      error: `No caben ${needed} partidos en las ${freeSlots} franjas libres. Amplía fechas, días de juego o partidos por día.`,
+      error: `No caben ${needed} partidos en las ${freeSlots} franjas libres. Amplía la fecha de fin del torneo, añade otro día de la semana para jugar, o programa un partido más por día.`,
     };
   }
 
@@ -87,7 +90,7 @@ export function scheduleMatches(
         matches: [],
         slotsAvailable: slots.length,
         slotsNeeded: needed,
-        error: "No hay suficientes franjas para programar todos los partidos sin solaparse.",
+        error: NOT_ENOUGH_SLOTS,
       };
     }
     used.add(index);

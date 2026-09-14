@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTournamentMutation } from "@/lib/authz";
 import { getTournament } from "@/lib/queries";
 import { scheduleMatches } from "@/lib/tournament/schedule";
+import { startOfNextWeekBogota, toBogotaDateString } from "@/lib/tournament/dates";
 import type { MatchPhase as Phase, UnscheduledMatch } from "@/lib/tournament/types";
 
 function revalidateRoster(id: string) {
@@ -22,7 +23,7 @@ function revalidateRoster(id: string) {
 }
 
 function dateField(value: Date) {
-  return value.toISOString().slice(0, 10);
+  return toBogotaDateString(value);
 }
 
 function leaguePhase(format: "ROUND_ROBIN" | "GROUPS" | "QUADRANGULAR"): Phase {
@@ -97,7 +98,7 @@ export async function addTeamAction(input: {
             maxMatchesPerDay: tournament.maxMatchesPerDay,
             matchDurationMinutes: tournament.matchDurationMinutes,
             startTime: tournament.startTime,
-            fromDate: new Date(),
+            fromDate: startOfNextWeekBogota(),
           },
           occupied,
         );

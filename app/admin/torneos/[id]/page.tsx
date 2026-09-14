@@ -8,6 +8,7 @@ import { TournamentTabs } from "@/components/TournamentTabs";
 import { MatchList, StatusBadge } from "@/components/MatchList";
 import { AdvanceButton, DeleteTournamentButton, FinishButton } from "@/components/AdminActions";
 import { TournamentAdminsPanel } from "./TournamentAdminsPanel";
+import { ExportExcelButton } from "@/components/ExportExcelButton";
 
 export default async function AdminTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -53,6 +54,7 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
         <Link href={`/admin/torneos/${id}/editar`} className="btn btn-dark">
           Editar equipos
         </Link>
+        <ExportExcelButton tournamentId={id} />
         {tournament.format === "GROUPS" && tournament.nextPhase !== "NONE" ? (
           <AdvanceButton tournamentId={id} />
         ) : null}

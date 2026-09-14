@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import { KnockoutRound, MatchPhase } from "@prisma/client";
+import { KnockoutRound, MatchPhase, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireGlobalMutation, requireTournamentMutation } from "@/lib/authz";
 import { dayKey, fromBogotaDateTimeLocal, parseLocalDate, scheduleFromDate, toBogotaDateString } from "@/lib/tournament/dates";
@@ -335,7 +335,7 @@ export async function saveMatchResultAction(input: {
   awayScore: number;
   winnerId?: string | null;
   scheduledAt?: string;
-  goals: { playerId: string; teamId: string; minute?: number | null }[];
+  goals: { playerId?: string; playerName?: string; teamId: string; minute?: number | null }[];
   scoresheet?: File | null;
   removeScoresheet?: boolean;
 }) {
@@ -358,46 +358,56 @@ export async function saveMatchResultAction(input: {
   const photo = await readScoresheetFile(input.scoresheet);
   if (photo && "error" in photo) return { error: photo.error };
 
-  await prisma.$transaction(async (tx) => {
-    await tx.goal.deleteMany({ where: { matchId: match.id } });
-    await tx.match.update({
-      where: { id: match.id },
-      data: {
-        homeScore: input.homeScore,
-        awayScore: input.awayScore,
-        winnerId,
-        status: "PLAYED",
-        scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : match.scheduledAt,
-        goals: {
-          create: input.goals.map((goal) => ({
-            playerId: goal.playerId,
-            teamId: goal.teamId,
-            minute: goal.minute ?? null,
-          })),
-        },
-      },
-    });
+  try {
+    await prisma.$transaction(async (tx) => {
+      const players = await resolveGoalPlayers(tx, [match.homeTeamId, match.awayTeamId], input.goals);
+      if ("error" in players) {
+        throw new ResultSaveError(players.error);
+      }
 
-    if (input.removeScoresheet && !photo) {
-      await tx.matchScoresheet.deleteMany({ where: { matchId: match.id } });
-    } else if (photo && "data" in photo) {
-      await tx.matchScoresheet.upsert({
-        where: { matchId: match.id },
-        create: {
-          matchId: match.id,
-          mimeType: photo.mimeType,
-          fileName: photo.fileName,
-          data: photo.data,
-        },
-        update: {
-          mimeType: photo.mimeType,
-          fileName: photo.fileName,
-          data: photo.data,
-          uploadedAt: new Date(),
+      await tx.goal.deleteMany({ where: { matchId: match.id } });
+      await tx.match.update({
+        where: { id: match.id },
+        data: {
+          homeScore: input.homeScore,
+          awayScore: input.awayScore,
+          winnerId,
+          status: "PLAYED",
+          scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : match.scheduledAt,
+          goals: {
+            create: players.players.map((goal) => ({
+              playerId: goal.playerId,
+              teamId: goal.teamId,
+              minute: goal.minute,
+            })),
+          },
         },
       });
-    }
-  });
+
+      if (input.removeScoresheet && !photo) {
+        await tx.matchScoresheet.deleteMany({ where: { matchId: match.id } });
+      } else if (photo && "data" in photo) {
+        await tx.matchScoresheet.upsert({
+          where: { matchId: match.id },
+          create: {
+            matchId: match.id,
+            mimeType: photo.mimeType,
+            fileName: photo.fileName,
+            data: photo.data,
+          },
+          update: {
+            mimeType: photo.mimeType,
+            fileName: photo.fileName,
+            data: photo.data,
+            uploadedAt: new Date(),
+          },
+        });
+      }
+    });
+  } catch (error) {
+    if (error instanceof ResultSaveError) return { error: error.message };
+    throw error;
+  }
 
   await refreshTournamentStatus(match.tournamentId);
   revalidateTournament(match.tournamentId);
@@ -408,6 +418,81 @@ export async function saveMatchResultAction(input: {
 
 function lastMatchDate(dates: Date[]) {
   return dates.reduce((latest, date) => (date > latest ? date : latest), dates[0]);
+}
+
+class ResultSaveError extends Error {}
+
+function normalizePlayerName(name: string) {
+  return name.trim().replace(/\s+/g, " ");
+}
+
+async function resolveGoalPlayers(
+  tx: Prisma.TransactionClient,
+  teamIds: string[],
+  goals: { playerId?: string; playerName?: string; teamId: string; minute?: number | null }[],
+) {
+  const allowed = new Set(teamIds);
+  const resolved: { playerId: string; teamId: string; minute: number | null }[] = [];
+  const cache = new Map<string, string>();
+  const nextNumber = new Map<string, number>();
+
+  for (const teamId of teamIds) {
+    const last = await tx.player.aggregate({
+      where: { teamId },
+      _max: { number: true },
+    });
+    nextNumber.set(teamId, (last._max.number ?? 0) + 1);
+  }
+
+  for (const goal of goals) {
+    if (!allowed.has(goal.teamId)) {
+      return { error: "Hay un gol asignado a un equipo que no jugó este partido." };
+    }
+
+    const name = normalizePlayerName(goal.playerName ?? "");
+    let playerId = goal.playerId?.trim() || "";
+
+    if (playerId) {
+      const existing = await tx.player.findFirst({
+        where: { id: playerId, teamId: goal.teamId },
+      });
+      if (existing) {
+        cache.set(`${goal.teamId}:${existing.name.toLowerCase()}`, existing.id);
+        resolved.push({ playerId: existing.id, teamId: goal.teamId, minute: goal.minute ?? null });
+        continue;
+      }
+    }
+
+    if (!name) {
+      return { error: "Cada gol necesita un jugador de la lista o un nombre nuevo." };
+    }
+
+    const cacheKey = `${goal.teamId}:${name.toLowerCase()}`;
+    const cached = cache.get(cacheKey);
+    if (cached) {
+      resolved.push({ playerId: cached, teamId: goal.teamId, minute: goal.minute ?? null });
+      continue;
+    }
+
+    const existing = await tx.player.findFirst({
+      where: { teamId: goal.teamId, name: { equals: name, mode: "insensitive" } },
+    });
+    if (existing) {
+      cache.set(cacheKey, existing.id);
+      resolved.push({ playerId: existing.id, teamId: goal.teamId, minute: goal.minute ?? null });
+      continue;
+    }
+
+    const number = nextNumber.get(goal.teamId) ?? 1;
+    const created = await tx.player.create({
+      data: { name, number, teamId: goal.teamId },
+    });
+    nextNumber.set(goal.teamId, number + 1);
+    cache.set(cacheKey, created.id);
+    resolved.push({ playerId: created.id, teamId: goal.teamId, minute: goal.minute ?? null });
+  }
+
+  return { players: resolved };
 }
 
 function toDateInput(date: Date) {

@@ -60,7 +60,12 @@ export default async function AdminMatchPage({
             awayScore: match.awayScore,
             winnerId: match.winnerId,
             scheduledAt: match.scheduledAt,
-            goals: match.goals,
+            goals: match.goals.map((goal) => ({
+              playerId: goal.playerId,
+              playerName: goal.player.name,
+              teamId: goal.teamId,
+              minute: goal.minute,
+            })),
             scoresheet: match.scoresheet,
           }}
         />

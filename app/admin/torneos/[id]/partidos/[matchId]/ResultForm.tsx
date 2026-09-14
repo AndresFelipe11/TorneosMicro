@@ -6,7 +6,7 @@ import { saveMatchResultAction } from "@/lib/actions/tournaments";
 import { fromBogotaDateTimeLocal, toBogotaDateTimeLocal } from "@/lib/tournament/dates";
 
 type Player = { id: string; name: string; teamId: string };
-type GoalDraft = { playerId: string; teamId: string; minute: string };
+type GoalDraft = { playerId: string; playerName: string; teamId: string; minute: string };
 
 export function ResultForm({
   matchId,
@@ -28,7 +28,7 @@ export function ResultForm({
     awayScore: number | null;
     winnerId: string | null;
     scheduledAt: Date | string;
-    goals: { playerId: string; teamId: string; minute: number | null }[];
+    goals: { playerId: string; playerName: string; teamId: string; minute: number | null }[];
     scoresheet: { fileName: string; uploadedAt: Date | string } | null;
   };
 }) {
@@ -40,6 +40,7 @@ export function ResultForm({
   const [goals, setGoals] = useState<GoalDraft[]>(
     initial.goals.map((goal) => ({
       playerId: goal.playerId,
+      playerName: goal.playerName,
       teamId: goal.teamId,
       minute: goal.minute == null ? "" : String(goal.minute),
     })),
@@ -54,9 +55,35 @@ export function ResultForm({
   const isDraw = Number(homeScore) === Number(awayScore);
 
   function addGoal(teamId: string) {
-    const first = players.find((player) => player.teamId === teamId);
-    if (!first) return;
-    setGoals((current) => [...current, { playerId: first.id, teamId, minute: "" }]);
+    setGoals((current) => [...current, { playerId: "", playerName: "", teamId, minute: "" }]);
+  }
+
+  function playersOf(teamId: string) {
+    return players.filter((player) => player.teamId === teamId);
+  }
+
+  function setGoalPlayer(index: number, playerId: string, teamId: string) {
+    const selected = playersOf(teamId).find((player) => player.id === playerId);
+    setGoals((current) =>
+      current.map((item, i) =>
+        i === index
+          ? { ...item, playerId, playerName: selected?.name ?? "" }
+          : item,
+      ),
+    );
+  }
+
+  function setGoalName(index: number, playerName: string, teamId: string) {
+    const match = playersOf(teamId).find(
+      (player) => player.name.toLowerCase() === playerName.trim().toLowerCase(),
+    );
+    setGoals((current) =>
+      current.map((item, i) =>
+        i === index
+          ? { ...item, playerName, playerId: match?.id ?? "" }
+          : item,
+      ),
+    );
   }
 
   function submit() {
@@ -67,6 +94,10 @@ export function ResultForm({
         setError("La fecha y hora no son válidas.");
         return;
       }
+      if (goals.some((goal) => !goal.playerId && !goal.playerName.trim())) {
+        setError("Cada gol necesita un jugador de la lista o un nombre nuevo.");
+        return;
+      }
       const result = await saveMatchResultAction({
         matchId,
         homeScore: Number(homeScore),
@@ -74,7 +105,8 @@ export function ResultForm({
         winnerId: knockout && isDraw ? winnerId : undefined,
         scheduledAt: when.toISOString(),
         goals: goals.map((goal) => ({
-          playerId: goal.playerId,
+          playerId: goal.playerId || undefined,
+          playerName: goal.playerName,
           teamId: goal.teamId,
           minute: goal.minute === "" ? null : Number(goal.minute),
         })),
@@ -128,26 +160,34 @@ export function ResultForm({
             </button>
           </div>
         </div>
+        <p className="mb-3 text-sm text-muted">
+          Elige un jugador del desplegable o escribe un nombre. Si no existe, se crea en ese equipo al
+          guardar.
+        </p>
         <div className="space-y-2">
           {goals.map((goal, index) => {
-            const options = players.filter((player) => player.teamId === goal.teamId);
+            const options = playersOf(goal.teamId);
+            const teamName = goal.teamId === homeTeam.id ? homeTeam.name : awayTeam.name;
             return (
-              <div key={`${goal.playerId}-${index}`} className="grid gap-2 sm:grid-cols-[1fr_7rem_auto]">
+              <div key={`${goal.teamId}-${index}`} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem_auto]">
                 <select
                   className="field"
                   value={goal.playerId}
-                  onChange={(e) =>
-                    setGoals((current) =>
-                      current.map((item, i) => (i === index ? { ...item, playerId: e.target.value } : item)),
-                    )
-                  }
+                  onChange={(e) => setGoalPlayer(index, e.target.value, goal.teamId)}
                 >
+                  <option value="">Lista · {teamName}</option>
                   {options.map((player) => (
                     <option key={player.id} value={player.id}>
                       {player.name}
                     </option>
                   ))}
                 </select>
+                <input
+                  className="field"
+                  placeholder="O escribe el nombre"
+                  value={goal.playerName}
+                  onChange={(e) => setGoalName(index, e.target.value, goal.teamId)}
+                />
                 <input
                   className="field"
                   type="number"

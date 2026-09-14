@@ -6,6 +6,7 @@ import { StatusBadge, MatchList } from "@/components/MatchList";
 import { StandingsTable } from "@/components/StandingsTable";
 import { ScorersTable } from "@/components/ScorersTable";
 import { DefenseTable } from "@/components/DefenseTable";
+import { ExportExcelButton } from "@/components/ExportExcelButton";
 
 export default async function TournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -31,7 +32,10 @@ export default async function TournamentPage({ params }: { params: Promise<{ id:
             <p className="text-sm text-muted">Después de grupos: {nextPhaseLabel(tournament.nextPhase)}</p>
           ) : null}
         </div>
-        <StatusBadge status={tournament.status} />
+        <div className="flex flex-wrap items-center gap-2">
+          <StatusBadge status={tournament.status} />
+          <ExportExcelButton tournamentId={id} />
+        </div>
       </div>
       <TournamentTabs id={id} />
       <div className="grid gap-6 lg:grid-cols-2">
