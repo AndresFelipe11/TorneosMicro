@@ -1,0 +1,157 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum TournamentStatus {
+  DRAFT
+  SCHEDULED
+  IN_PROGRESS
+  FINISHED
+}
+
+enum TournamentFormat {
+  ROUND_ROBIN
+  GROUPS
+  QUADRANGULAR
+}
+
+enum NextPhase {
+  NONE
+  KNOCKOUT
+  QUADRANGULAR
+}
+
+enum MatchPhase {
+  GROUP
+  ROUND_ROBIN
+  QUADRANGULAR
+  KNOCKOUT
+}
+
+enum MatchStatus {
+  SCHEDULED
+  PLAYED
+}
+
+enum KnockoutRound {
+  R16
+  QF
+  SF
+  F
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+}
+
+model Tournament {
+  id                   String           @id @default(cuid())
+  name                 String
+  startDate            DateTime         @db.Date
+  endDate              DateTime         @db.Date
+  status               TournamentStatus @default(SCHEDULED)
+  format               TournamentFormat
+  groupCount           Int?
+  qualifyPerGroup      Int              @default(2)
+  nextPhase            NextPhase        @default(NONE)
+  playingDays          Int[]
+  maxMatchesPerDay     Int              @default(4)
+  matchDurationMinutes Int              @default(40)
+  startTime            String           @default("09:00")
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  teams                Team[]
+  groups               Group[]
+  matches              Match[]
+}
+
+model Team {
+  id           String     @id @default(cuid())
+  name         String
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  groupId      String?
+  group        Group?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  players      Player[]
+  homeMatches  Match[]    @relation("HomeTeam")
+  awayMatches  Match[]    @relation("AwayTeam")
+
+  @@index([tournamentId])
+}
+
+model Player {
+  id     String @id @default(cuid())
+  name   String
+  number Int?
+  teamId String
+  team   Team   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  goals  Goal[]
+}
+
+model Group {
+  id           String      @id @default(cuid())
+  name         String
+  phase        MatchPhase  @default(GROUP)
+  tournamentId String
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  teams        Team[]
+  matches      Match[]
+
+  @@index([tournamentId])
+}
+
+model Match {
+  id            String         @id @default(cuid())
+  tournamentId  String
+  tournament    Tournament     @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  groupId       String?
+  group         Group?         @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  homeTeamId    String
+  homeTeam      Team           @relation("HomeTeam", fields: [homeTeamId], references: [id], onDelete: Restrict)
+  awayTeamId    String
+  awayTeam      Team           @relation("AwayTeam", fields: [awayTeamId], references: [id], onDelete: Restrict)
+  phase         MatchPhase
+  round         Int
+  knockoutRound KnockoutRound?
+  scheduledAt   DateTime
+  status        MatchStatus    @default(SCHEDULED)
+  homeScore     Int?
+  awayScore     Int?
+  winnerId      String?
+  goals         Goal[]
+  scoresheet    MatchScoresheet?
+
+  @@index([tournamentId, scheduledAt])
+  @@index([tournamentId, phase])
+}
+
+model MatchScoresheet {
+  matchId    String   @id
+  match      Match    @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  mimeType   String
+  fileName   String
+  data       Bytes
+  uploadedAt DateTime @default(now())
+}
+
+model Goal {
+  id       String @id @default(cuid())
+  matchId  String
+  match    Match  @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  playerId String
+  player   Player @relation(fields: [playerId], references: [id], onDelete: Cascade)
+  minute   Int?
+  teamId   String
+
+  @@index([matchId])
+}
