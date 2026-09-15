@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { normalizeWhatsApp } from "@/lib/whatsapp";
+import { teamName } from "@/lib/format";
 
 export function captainEmailFor(teamId: string) {
   return `captain.${teamId}@equipo.local`;
@@ -55,7 +56,7 @@ export async function upsertTeamCaptain(
     await tx.user.update({
       where: { id: existing.id },
       data: {
-        name: input.teamName,
+        name: teamName(input.teamName),
         email,
         passwordHash,
         whatsapp: phone,
@@ -67,7 +68,7 @@ export async function upsertTeamCaptain(
 
   await tx.user.create({
     data: {
-      name: input.teamName,
+      name: teamName(input.teamName),
       email,
       passwordHash,
       role: "CAPTAIN",
@@ -78,7 +79,31 @@ export async function upsertTeamCaptain(
   return { ok: true as const, created: true };
 }
 
+export async function ensureUppercaseTeamNames(tournamentId?: string) {
+  const teams = await prisma.team.findMany({
+    where: tournamentId ? { tournamentId } : undefined,
+    select: { id: true, name: true },
+  });
+  for (const team of teams) {
+    const name = teamName(team.name);
+    if (!name || name === team.name) continue;
+    await prisma.team.update({ where: { id: team.id }, data: { name } });
+    await prisma.user.updateMany({ where: { teamId: team.id, role: "CAPTAIN" }, data: { name } });
+  }
+
+  const registrations = await prisma.teamRegistration.findMany({
+    where: tournamentId ? { tournamentId } : undefined,
+    select: { id: true, name: true },
+  });
+  for (const row of registrations) {
+    const name = teamName(row.name);
+    if (!name || name === row.name) continue;
+    await prisma.teamRegistration.update({ where: { id: row.id }, data: { name } });
+  }
+}
+
 export async function syncCaptainsFromAcceptedRegistrations(tournamentId: string) {
+  await ensureUppercaseTeamNames(tournamentId);
   const [teams, registrations] = await Promise.all([
     prisma.team.findMany({
       where: { tournamentId },

@@ -2,6 +2,7 @@ import { distributeTeams, teamsByGroup } from "./groups";
 import { generateRoundRobin } from "./roundRobin";
 import { scheduleMatches } from "./schedule";
 import type { ScheduleResult, TournamentConfig, UnscheduledMatch } from "./types";
+import { teamName } from "../format";
 
 export function validateConfig(config: TournamentConfig): string | null {
   if (!config.name.trim()) return "El torneo necesita un nombre.";
@@ -11,7 +12,7 @@ export function validateConfig(config: TournamentConfig): string | null {
   if (config.maxMatchesPerDay < 1) return "Debe haber al menos un partido por día.";
   if (config.matchDurationMinutes < 10) return "La duración del partido es demasiado corta.";
 
-  const names = config.teams.map((team) => team.name.trim()).filter(Boolean);
+  const names = config.teams.map((team) => teamName(team.name)).filter(Boolean);
   if (names.length < 2) return "Agrega al menos dos equipos.";
   if (new Set(names.map((name) => name.toLowerCase())).size !== names.length) {
     return "Hay equipos con el mismo nombre.";
@@ -44,16 +45,16 @@ export function validateConfig(config: TournamentConfig): string | null {
 }
 
 export function generateUnscheduled(config: TournamentConfig): UnscheduledMatch[] {
-  const teams = config.teams.filter((team) => team.name.trim());
+  const teams = config.teams.filter((team) => teamName(team.name));
   if (config.format === "ROUND_ROBIN") {
     return generateRoundRobin(
-      teams.map((team) => team.name.trim()),
+      teams.map((team) => teamName(team.name)),
       "ROUND_ROBIN",
     );
   }
   if (config.format === "QUADRANGULAR") {
     return generateRoundRobin(
-      teams.map((team) => team.name.trim()),
+      teams.map((team) => teamName(team.name)),
       "QUADRANGULAR",
     );
   }

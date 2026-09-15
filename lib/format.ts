@@ -151,3 +151,11 @@ export function roleLabel(role: string) {
   if (role === "CAPTAIN") return "Capitán";
   return "Admin de torneo";
 }
+
+export function teamName(value: string | null | undefined) {
+  return (value ?? "").trim().replace(/\s+/g, " ").toLocaleUpperCase("es-CO");
+}
+
+export function teamNameInput(value: string) {
+  return value.toLocaleUpperCase("es-CO");
+}

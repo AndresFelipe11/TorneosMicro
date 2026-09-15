@@ -34,7 +34,7 @@ export function ScorersTable({
               <tr key={row.playerId} className={highlighted ? "bg-lime/30 ring-2 ring-inset ring-lime" : undefined}>
                 <td className="font-bold">{index + 1}</td>
                 <td className="font-semibold">{playerLabel(row.playerName, row.playerNumber)}</td>
-                <td>{row.teamName}</td>
+                <td className="uppercase">{row.teamName}</td>
                 <td className="display text-2xl text-lime">{row.goals}</td>
               </tr>
               );

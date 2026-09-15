@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireAnyAdminMutation, requireTournamentMutation } from "@/lib/authz";
 import { addTeamToTournament } from "@/lib/actions/roster";
 import { normalizeWhatsApp, registrationWhatsAppMessage, whatsappChatUrl } from "@/lib/whatsapp";
+import { teamName } from "@/lib/format";
 
 function revalidateRegistration(id: string) {
   revalidatePath("/");
@@ -64,7 +65,7 @@ export async function requestTeamRegistrationAction(input: {
   const phone = await resolveTournamentWhatsApp(tournament.id);
   if (!phone) return { error: "El torneo no tiene un WhatsApp de contacto." };
 
-  const name = input.name.trim();
+  const name = teamName(input.name);
   if (!name) return { error: "El equipo necesita un nombre." };
   const players = parsePlayers(input.players);
   if (players.length === 0) return { error: "Agrega al menos un jugador." };

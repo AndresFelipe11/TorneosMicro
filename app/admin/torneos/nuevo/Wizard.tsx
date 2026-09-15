@@ -6,7 +6,7 @@ import { createTournamentAction } from "@/lib/actions/tournaments";
 import { generateTournamentSchedule, withDistributedGroups } from "@/lib/tournament/generate";
 import { groupNameAt } from "@/lib/tournament/groups";
 import type { NextPhase, TeamInput, TournamentConfig, TournamentFormat } from "@/lib/tournament/types";
-import { formatDateTime, phaseLabel, WEEKDAYS } from "@/lib/format";
+import { formatDateTime, phaseLabel, WEEKDAYS, teamNameInput } from "@/lib/format";
 
 function toInputDate(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
@@ -266,10 +266,10 @@ export function Wizard() {
             <div key={index} className="card space-y-3 p-4">
               <div className="flex gap-3">
                 <input
-                  className="field"
+                  className="field uppercase"
                   placeholder={`Equipo ${index + 1}`}
                   value={team.name}
-                  onChange={(e) => setTeam(index, { name: e.target.value })}
+                  onChange={(e) => setTeam(index, { name: teamNameInput(e.target.value) })}
                 />
                 {config.format === "GROUPS" ? (
                   <select

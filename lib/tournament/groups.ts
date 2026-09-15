@@ -1,4 +1,5 @@
 import type { TeamInput } from "./types";
+import { teamName } from "../format";
 
 export const GROUP_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
@@ -23,7 +24,7 @@ export function teamsByGroup(teams: TeamInput[], groupCount: number): Map<string
   for (const team of assigned) {
     const key = team.groupName ?? groupNameAt(0);
     const list = map.get(key) ?? [];
-    list.push(team.name);
+    list.push(teamName(team.name));
     map.set(key, list);
   }
   return map;

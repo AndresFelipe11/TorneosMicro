@@ -1,4 +1,5 @@
 import type { StandingRow } from "./types";
+import { teamName } from "../format";
 
 export type PlayedMatch = {
   homeTeamId: string;
@@ -17,7 +18,7 @@ export type TeamRef = {
 function emptyRow(team: TeamRef): StandingRow {
   return {
     teamId: team.id,
-    teamName: team.name,
+    teamName: teamName(team.name),
     groupName: team.groupName ?? undefined,
     played: 0,
     won: 0,

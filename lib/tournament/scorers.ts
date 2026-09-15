@@ -1,4 +1,5 @@
 import type { ScorerRow } from "./types";
+import { teamName } from "../format";
 
 export type GoalInput = {
   playerId: string;
@@ -16,7 +17,7 @@ export function computeScorers(goals: GoalInput[]): ScorerRow[] {
       playerName: goal.playerName,
       playerNumber: goal.playerNumber ?? null,
       teamId: goal.teamId,
-      teamName: goal.teamName,
+      teamName: teamName(goal.teamName),
       goals: 0,
     };
     current.goals += 1;

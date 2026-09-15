@@ -42,7 +42,7 @@ export function DefenseTable({
                 }
               >
                 <td className="font-bold">{index + 1}</td>
-                <td className="whitespace-nowrap font-semibold">
+                <td className="whitespace-nowrap font-semibold uppercase">
                   {tournamentId ? (
                     <Link className="text-cream no-underline hover:text-lime" href={`/torneos/${tournamentId}/equipos/${row.teamId}`}>
                       {row.teamName}

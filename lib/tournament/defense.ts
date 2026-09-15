@@ -1,5 +1,6 @@
 import type { DefenseRow } from "./types";
 import type { PlayedMatch, TeamRef } from "./standings";
+import { teamName } from "../format";
 
 export function computeDefense(teams: TeamRef[], matches: PlayedMatch[]): DefenseRow[] {
   const table = new Map<string, DefenseRow>(
@@ -7,7 +8,7 @@ export function computeDefense(teams: TeamRef[], matches: PlayedMatch[]): Defens
       team.id,
       {
         teamId: team.id,
-        teamName: team.name,
+        teamName: teamName(team.name),
         played: 0,
         ga: 0,
         cleanSheets: 0,

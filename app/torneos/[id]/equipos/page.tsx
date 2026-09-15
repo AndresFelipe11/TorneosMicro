@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getTournament, standingsFor } from "@/lib/queries";
 import { tournamentFilter } from "@/lib/search";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, teamName } from "@/lib/format";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { TournamentFilterNote } from "@/components/TournamentFilterNote";
 
@@ -67,7 +67,7 @@ export default async function TeamsPage({
                 {next ? (
                   <p className="mt-2 text-sm">
                     Próximo: {formatDateTime(next.scheduledAt)} vs{" "}
-                    {next.homeTeamId === team.id ? next.awayTeam.name : next.homeTeam.name}
+                    {teamName(next.homeTeamId === team.id ? next.awayTeam.name : next.homeTeam.name)}
                   </p>
                 ) : (
                   <p className="mt-2 text-sm text-muted">No tiene partidos pendientes.</p>

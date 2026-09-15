@@ -3,6 +3,7 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useAskConfirm } from "@/components/ConfirmDialog";
+import { teamNameInput } from "@/lib/format";
 import {
   addPlayerAction,
   addTeamAction,
@@ -212,10 +213,10 @@ export function RosterEditor({
         </p>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
           <input
-            className="field"
+            className="field uppercase"
             placeholder="Nombre del equipo"
             value={newTeam}
-            onChange={(e) => setNewTeam(e.target.value)}
+            onChange={(e) => setNewTeam(teamNameInput(e.target.value))}
             required
           />
           {format === "GROUPS" ? (
@@ -316,7 +317,7 @@ function TeamCard({
   return (
     <section className="card space-y-4 p-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <input className="field flex-1" value={teamName} onChange={(e) => setTeamName(e.target.value)} />
+        <input className="field flex-1 uppercase" value={teamName} onChange={(e) => setTeamName(teamNameInput(e.target.value))} />
         {team.group ? (
           <span className="rounded-full bg-lime/30 px-3 py-1 text-xs font-bold">{team.group.name}</span>
         ) : null}

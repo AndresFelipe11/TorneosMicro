@@ -14,6 +14,7 @@ import type { GeneratedMatch, TournamentConfig, UnscheduledMatch } from "@/lib/t
 import { getTournament, standingsFor } from "@/lib/queries";
 import { readScoresheetFile } from "@/lib/scoresheet";
 import { isClosedMatch, venueOrNull, WALKOVER_GOALS, hasTournamentStarted } from "@/lib/tournament/match";
+import { teamName } from "@/lib/format";
 
 function revalidateTournament(id: string) {
   revalidatePath("/");
@@ -80,21 +81,22 @@ export async function createTournamentAction(input: {
     }
 
     const teamIds = new Map<string, string>();
-    for (const team of config.teams.filter((item) => item.name.trim())) {
+    for (const team of config.teams.filter((item) => teamName(item.name))) {
+      const name = teamName(team.name);
       const row = await tx.team.create({
         data: {
-          name: team.name.trim(),
+          name,
           tournamentId: created.id,
           groupId: team.groupName ? groupIds.get(team.groupName) : null,
           players: {
             create: team.players
               .map((player) => player.trim())
               .filter(Boolean)
-              .map((name, index) => ({ name, number: index + 1 })),
+              .map((playerName, index) => ({ name: playerName, number: index + 1 })),
           },
         },
       });
-      teamIds.set(team.name.trim(), row.id);
+      teamIds.set(name, row.id);
     }
 
     for (const match of input.matches) {

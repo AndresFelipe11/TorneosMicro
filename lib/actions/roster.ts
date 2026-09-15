@@ -11,6 +11,7 @@ import type { MatchPhase as Phase, UnscheduledMatch } from "@/lib/tournament/typ
 import { hasTournamentStarted, venueOrNull } from "@/lib/tournament/match";
 import { upsertTeamCaptain } from "@/lib/captain";
 import { normalizeWhatsApp } from "@/lib/whatsapp";
+import { teamName } from "@/lib/format";
 
 function revalidateRoster(id: string) {
   revalidatePath("/mi-equipo");
@@ -137,7 +138,7 @@ export async function addTeamToTournament(input: {
   if (!tournament) return { error: "Torneo no encontrado." };
   if (tournament.status === "FINISHED") return { error: "El torneo ya terminó." };
 
-  const name = input.name.trim();
+  const name = teamName(input.name);
   if (!name) return { error: "El equipo necesita un nombre." };
   const exists = tournament.teams.some((team) => team.name.toLowerCase() === name.toLowerCase());
   if (exists) return { error: "Ya hay un equipo con ese nombre." };
@@ -278,7 +279,7 @@ export async function setTeamCaptainAction(teamId: string, whatsapp: string) {
 }
 
 export async function renameTeamAction(teamId: string, name: string) {
-  const trimmed = name.trim();
+  const trimmed = teamName(name);
   if (!trimmed) return { error: "El equipo necesita un nombre." };
   const team = await prisma.team.findUnique({
     where: { id: teamId },

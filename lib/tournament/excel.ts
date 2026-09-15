@@ -11,6 +11,7 @@ import {
   playingDaysLabel,
   scoreLabel,
   statusLabel,
+  teamName,
 } from "@/lib/format";
 import { defenseFor, scorersFor, standingsFor, type TournamentDetail } from "@/lib/queries";
 
@@ -88,7 +89,7 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
     workbook,
     "Equipos",
     ["Equipo", "Grupo", "Jugadores"],
-    tournament.teams.map((team) => [team.name, team.group?.name ?? "—", team.players.length]),
+    tournament.teams.map((team) => [teamName(team.name), team.group?.name ?? "—", team.players.length]),
   );
 
   addSheet(
@@ -96,7 +97,7 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
     "Jugadores",
     ["Equipo", "Grupo", "Jugador"],
     tournament.teams.flatMap((team) =>
-      team.players.map((player) => [team.name, team.group?.name ?? "—", player.name]),
+      team.players.map((player) => [teamName(team.name), team.group?.name ?? "—", player.name]),
     ),
   );
 
@@ -110,8 +111,8 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
       match.group?.name ?? "—",
       match.knockoutRound ? knockoutLabel(match.knockoutRound) : `Jornada ${match.round}`,
       match.venue ?? tournament.venue ?? "—",
-      match.homeTeam.name,
-      match.awayTeam.name,
+      teamName(match.homeTeam.name),
+      teamName(match.awayTeam.name),
       scoreLabel(match.homeScore, match.awayScore, {
         homePenalties: match.homePenalties,
         awayPenalties: match.awayPenalties,
@@ -129,10 +130,10 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
     tournament.matches.flatMap((match) =>
       match.goals.map((goal) => [
         formatDateTime(match.scheduledAt),
-        match.homeTeam.name,
-        match.awayTeam.name,
+        teamName(match.homeTeam.name),
+        teamName(match.awayTeam.name),
         playerLabel(goal.player.name, goal.player.number),
-        tournament.teams.find((team) => team.id === goal.teamId)?.name ?? "",
+        teamName(tournament.teams.find((team) => team.id === goal.teamId)?.name),
       ]),
     ),
   );
@@ -194,10 +195,10 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
     tournament.matches.flatMap((match) =>
       match.cards.map((card) => [
         formatDateTime(match.scheduledAt),
-        match.homeTeam.name,
-        match.awayTeam.name,
+        teamName(match.homeTeam.name),
+        teamName(match.awayTeam.name),
         playerLabel(card.player.name, card.player.number),
-        tournament.teams.find((team) => team.id === card.teamId)?.name ?? "",
+        teamName(tournament.teams.find((team) => team.id === card.teamId)?.name),
         cardLabel(card.type),
         card.type === "YELLOW" ? (card.paid ? "Pagada" : "Sin pagar") : "",
       ]),

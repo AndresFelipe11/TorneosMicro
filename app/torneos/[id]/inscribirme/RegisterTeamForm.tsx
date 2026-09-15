@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useAskConfirm } from "@/components/ConfirmDialog";
 import { requestTeamRegistrationAction } from "@/lib/actions/registration";
+import { teamNameInput } from "@/lib/format";
 
 export function RegisterTeamForm({
   tournamentId,
@@ -30,7 +31,7 @@ export function RegisterTeamForm({
         event.preventDefault();
         setError(null);
         setMessage(null);
-        const teamName = name.trim();
+        const teamName = teamNameInput(name).trim();
         startTransition(async () => {
           const result = await requestTeamRegistrationAction({
             tournamentId,
@@ -70,7 +71,12 @@ export function RegisterTeamForm({
       </div>
       <label className="block space-y-1">
         <span className="text-sm font-semibold">Nombre del equipo</span>
-        <input className="field" value={name} onChange={(event) => setName(event.target.value)} required />
+        <input
+          className="field uppercase"
+          value={name}
+          onChange={(event) => setName(teamNameInput(event.target.value))}
+          required
+        />
       </label>
       <label className="block space-y-1">
         <span className="text-sm font-semibold">WhatsApp del capitán</span>

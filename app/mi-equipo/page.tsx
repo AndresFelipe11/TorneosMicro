@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireCaptain } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
-import { formatDateTime, phaseLabel } from "@/lib/format";
+import { formatDateTime, phaseLabel, teamName } from "@/lib/format";
 import { toBogotaDateTimeLocal } from "@/lib/tournament/dates";
 import { displayVenue } from "@/lib/tournament/match";
 import { StatusBadge } from "@/components/MatchList";
@@ -54,7 +54,7 @@ export default async function CaptainHomePage() {
               <article key={match.id} className="card space-y-2 p-5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="font-semibold">
-                    {match.homeTeam.name} vs {match.awayTeam.name}
+                    {teamName(match.homeTeam.name)} vs {teamName(match.awayTeam.name)}
                   </p>
                   <StatusBadge status={match.status} />
                 </div>
@@ -76,8 +76,8 @@ export default async function CaptainHomePage() {
                 ) : (
                   <PostponeForm
                     matchId={match.id}
-                    homeTeam={match.homeTeam.name}
-                    awayTeam={match.awayTeam.name}
+                    homeTeam={teamName(match.homeTeam.name)}
+                    awayTeam={teamName(match.awayTeam.name)}
                     currentScheduledAt={match.scheduledAt}
                     initialLocal={toBogotaDateTimeLocal(match.scheduledAt)}
                   />
