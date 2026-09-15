@@ -141,6 +141,12 @@ input[type="file"] {
   border-color: transparent;
 }
 
+.field::placeholder {
+  color: #6d758c;
+  opacity: 1;
+  white-space: pre-line;
+}
+
 .sr-only {
   position: absolute;
   width: 1px;

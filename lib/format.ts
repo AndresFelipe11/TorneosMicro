@@ -172,3 +172,7 @@ export type PostponeWindowId = (typeof POSTPONE_WINDOWS)[number]["id"];
 export function postponeWindowLabel(value: string | null | undefined) {
   return POSTPONE_WINDOWS.find((item) => item.id === value)?.label ?? null;
 }
+
+export function registrationIsOpen(tournament: { registrationOpen: boolean; status: string }) {
+  return tournament.registrationOpen && tournament.status !== "FINISHED";
+}

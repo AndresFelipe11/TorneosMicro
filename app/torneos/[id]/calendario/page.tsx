@@ -22,7 +22,7 @@ export default async function CalendarPage({
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="display text-4xl">{tournament.name}</h1>
       <p className="mb-4 text-muted">Calendario generado según las fechas y los días de juego.</p>
-      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen} query={filter.query} />
+      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} registrationFee={tournament.registrationFee} query={filter.query} />
       <TournamentFilterNote query={filter.query} labels={filter.labels} found={filter.found} path={`/torneos/${id}/calendario`} />
       <MatchList
         matches={tournament.matches}

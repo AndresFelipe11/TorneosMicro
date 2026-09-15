@@ -9,10 +9,12 @@ export function RegisterTeamForm({
   tournamentId,
   tournamentName,
   groups,
+  registrationFee,
 }: {
   tournamentId: string;
   tournamentName: string;
   groups: { id: string; name: string }[];
+  registrationFee?: string | null;
 }) {
   const ask = useAskConfirm();
   const [name, setName] = useState("");
@@ -68,6 +70,11 @@ export function RegisterTeamForm({
           enviar te avisamos y, si quieres, te llevamos a WhatsApp para confirmar con el
           administrador de {tournamentName}.
         </p>
+        {registrationFee?.trim() ? (
+          <p className="mt-2 rounded-xl bg-lime/15 px-3 py-2 text-sm font-semibold text-lime">
+            Inscripción: {registrationFee.trim()}
+          </p>
+        ) : null}
       </div>
       <label className="block space-y-1">
         <span className="text-sm font-semibold">Nombre del equipo</span>
@@ -102,9 +109,10 @@ export function RegisterTeamForm({
       ) : null}
       <label className="block space-y-1">
         <span className="text-sm font-semibold">Jugadores</span>
+        <span className="block text-sm text-muted">Un nombre por línea.</span>
         <textarea
           className="field min-h-32"
-          placeholder="Uno por línea o separados por coma"
+          placeholder={"Juan Pérez\nCarlos Gómez\nAndrés López"}
           value={players}
           onChange={(event) => setPlayers(event.target.value)}
           required

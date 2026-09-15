@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { getTournaments } from "@/lib/queries";
-import { formatDate, formatLabel, statusLabel } from "@/lib/format";
+import { formatDate, formatLabel, registrationIsOpen, statusLabel } from "@/lib/format";
 import { TournamentCover } from "@/components/TournamentCover";
 import { StatusBadge } from "@/components/MatchList";
 
 export default async function HomePage() {
   const tournaments = await getTournaments();
+  const openForTeams = tournaments.filter(registrationIsOpen);
 
   return (
     <div>
@@ -19,6 +20,28 @@ export default async function HomePage() {
             Crea un todos contra todos, fases de grupos o un cuadrangular. El calendario sale
             solo según las fechas y los días de juego.
           </p>
+          {openForTeams.length > 0 ? (
+            <div className="mt-8 max-w-xl rounded-3xl border-2 border-lime bg-lime/15 p-5">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-lime">Inscripciones abiertas</p>
+              <p className="display mt-1 text-2xl leading-tight sm:text-3xl">Inscribe tu equipo</p>
+              <p className="mt-2 text-sm text-cream/85">
+                Llena el formulario y el administrador te confirma por WhatsApp.
+              </p>
+              <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                {openForTeams.map((tournament) => (
+                  <Link
+                    key={tournament.id}
+                    href={`/torneos/${tournament.id}/inscribirme`}
+                    className="btn btn-lime"
+                  >
+                    {openForTeams.length === 1
+                      ? "Inscribir equipo"
+                      : `Inscribirme en ${tournament.name}`}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </div>
       </section>
 
@@ -35,35 +58,51 @@ export default async function HomePage() {
           </div>
         ) : (
           <div className="grid gap-4 sm:grid-cols-2">
-            {tournaments.map((tournament) => (
-              <Link
-                key={tournament.id}
-                href={`/torneos/${tournament.id}`}
-                className="card flex items-start gap-4 p-4 no-underline text-ink sm:p-5"
-              >
-                <TournamentCover src={tournament.coverImage} alt={tournament.name} variant="card" />
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-3">
-                    <h3 className="display min-w-0 text-xl leading-tight sm:text-2xl">{tournament.name}</h3>
-                    <StatusBadge status={tournament.status} />
-                  </div>
-                  <p className="mt-2 text-sm text-muted">
-                    {formatLabel(tournament.format)} · {tournament._count.teams} equipos ·{" "}
-                    {tournament._count.matches} partidos
-                  </p>
-                  <p className="mt-1 text-sm">
-                    {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)}
-                  </p>
-                  {tournament.registrationFee?.trim() ? (
-                    <p className="mt-2 text-sm">Inscripción: {tournament.registrationFee}</p>
+            {tournaments.map((tournament) => {
+              const open = registrationIsOpen(tournament);
+              return (
+                <article
+                  key={tournament.id}
+                  className={`card overflow-hidden ${open ? "border-lime/50" : ""}`}
+                >
+                  {open ? (
+                    <p className="bg-lime px-4 py-2 text-center text-xs font-bold uppercase tracking-[0.18em] text-pitch">
+                      Inscripciones abiertas
+                    </p>
                   ) : null}
-                  <p className="mt-3 text-sm font-bold text-lime">{statusLabel(tournament.status)}</p>
-                  {tournament.registrationOpen && tournament.status !== "FINISHED" ? (
-                    <p className="mt-2 text-sm font-bold text-lime">Inscripciones abiertas</p>
+                  <Link
+                    href={`/torneos/${tournament.id}`}
+                    className="flex items-start gap-4 p-4 no-underline text-ink sm:p-5"
+                  >
+                    <TournamentCover src={tournament.coverImage} alt={tournament.name} variant="card" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <h3 className="display min-w-0 text-xl leading-tight sm:text-2xl">{tournament.name}</h3>
+                        <StatusBadge status={tournament.status} />
+                      </div>
+                      <p className="mt-2 text-sm text-muted">
+                        {formatLabel(tournament.format)} · {tournament._count.teams} equipos ·{" "}
+                        {tournament._count.matches} partidos
+                      </p>
+                      <p className="mt-1 text-sm">
+                        {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)}
+                      </p>
+                      {tournament.registrationFee?.trim() ? (
+                        <p className="mt-2 text-sm">Inscripción: {tournament.registrationFee}</p>
+                      ) : null}
+                      <p className="mt-3 text-sm font-bold text-lime">{statusLabel(tournament.status)}</p>
+                    </div>
+                  </Link>
+                  {open ? (
+                    <div className="px-4 pb-4 sm:px-5">
+                      <Link href={`/torneos/${tournament.id}/inscribirme`} className="btn btn-lime w-full">
+                        Inscribir equipo
+                      </Link>
+                    </div>
                   ) : null}
-                </div>
-              </Link>
-            ))}
+                </article>
+              );
+            })}
           </div>
         )}
       </section>

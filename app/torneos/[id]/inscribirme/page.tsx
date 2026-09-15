@@ -19,7 +19,24 @@ export default async function RegisterTeamPage({ params }: { params: Promise<{ i
         details={<p>Inscribe tu equipo.</p>}
         description={tournament.description}
       />
-      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen} />
+      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} />
+      {tournament.registrationOpen && tournament.status !== "FINISHED" ? (
+        <div className="mb-6">
+          <RegisterTeamForm
+            tournamentId={tournament.id}
+            tournamentName={tournament.name}
+            groups={tournament.format === "GROUPS" ? tournament.groups : []}
+            registrationFee={tournament.registrationFee}
+          />
+        </div>
+      ) : (
+        <div className="card mb-6 space-y-3 p-5">
+          <p className="font-semibold">Este torneo no está recibiendo equipos por ahora.</p>
+          <Link href={`/torneos/${id}`} className="font-bold text-lime">
+            Volver al torneo →
+          </Link>
+        </div>
+      )}
       <TournamentInfo
         tournamentId={id}
         registrationFee={tournament.registrationFee}
@@ -28,20 +45,6 @@ export default async function RegisterTeamPage({ params }: { params: Promise<{ i
         rules={tournament.rules}
         rulesHref={`/torneos/${id}/reglamento`}
       />
-      {tournament.registrationOpen && tournament.status !== "FINISHED" ? (
-        <RegisterTeamForm
-          tournamentId={tournament.id}
-          tournamentName={tournament.name}
-          groups={tournament.format === "GROUPS" ? tournament.groups : []}
-        />
-      ) : (
-        <div className="card space-y-3 p-5">
-          <p className="font-semibold">Este torneo no está recibiendo equipos por ahora.</p>
-          <Link href={`/torneos/${id}`} className="font-bold text-lime">
-            Volver al torneo →
-          </Link>
-        </div>
-      )}
     </div>
   );
 }

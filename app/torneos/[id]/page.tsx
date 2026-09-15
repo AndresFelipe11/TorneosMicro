@@ -1,7 +1,6 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { defenseFor, getTournament, scorersFor, standingsFor } from "@/lib/queries";
-import { formatDate, formatLabel, nextPhaseLabel, playingDaysLabel } from "@/lib/format";
+import { formatDate, formatLabel, nextPhaseLabel, playingDaysLabel, registrationIsOpen } from "@/lib/format";
 import { tournamentFilter } from "@/lib/search";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { StatusBadge, MatchList } from "@/components/MatchList";
@@ -73,7 +72,12 @@ export default async function TournamentPage({
         }
         description={tournament.description}
       />
-      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen} query={filter.query} />
+      <TournamentTabs
+        id={id}
+        registrationOpen={registrationIsOpen(tournament)}
+        registrationFee={tournament.registrationFee}
+        query={filter.query}
+      />
       <TournamentFilterNote query={filter.query} labels={filter.labels} found={filter.found} path={`/torneos/${id}`} />
       <TournamentInfo
         tournamentId={id}
@@ -84,17 +88,6 @@ export default async function TournamentPage({
         rulesHref={`/torneos/${id}/reglamento`}
         editHref={canEditInfo ? `/admin/torneos/${id}/datos` : undefined}
       />
-      {tournament.registrationOpen && tournament.status !== "FINISHED" ? (
-        <div className="card mb-6 flex flex-col gap-3 p-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <div>
-            <p className="display text-xl">Inscripciones abiertas</p>
-            <p className="text-sm text-muted">Puedes añadir tu equipo.</p>
-          </div>
-          <Link href={`/torneos/${id}/inscribirme`} className="btn btn-lime w-full sm:w-auto">
-            Inscribirme
-          </Link>
-        </div>
-      ) : null}
       <div className="grid gap-6 lg:grid-cols-2">
         <div>
           <h2 className="display mb-3 text-2xl">

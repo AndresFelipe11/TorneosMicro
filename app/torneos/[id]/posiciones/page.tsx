@@ -23,7 +23,7 @@ export default async function StandingsPage({
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="display text-4xl">{tournament.name}</h1>
       <p className="mb-4 text-muted">3 puntos por victoria, 1 por empate. Desempate: diferencia, goles y enfrentamiento directo.</p>
-      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen} query={filter.query} />
+      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} registrationFee={tournament.registrationFee} query={filter.query} />
       <TournamentFilterNote query={filter.query} labels={filter.labels} found={filter.found} path={`/torneos/${id}/posiciones`} />
       <div className="space-y-5">
         {[...standings.entries()].map(([title, rows]) => (
