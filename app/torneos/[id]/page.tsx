@@ -11,7 +11,7 @@ import { DefenseTable } from "@/components/DefenseTable";
 import { ExportExcelButton } from "@/components/ExportExcelButton";
 import { TournamentInfo } from "@/components/TournamentInfo";
 import { TournamentFilterNote } from "@/components/TournamentFilterNote";
-import { TournamentCover } from "@/components/TournamentCover";
+import { TournamentHeading } from "@/components/TournamentCover";
 import { canManageTournament, getAdminUser } from "@/lib/authz";
 
 export default async function TournamentPage({
@@ -49,32 +49,34 @@ export default async function TournamentPage({
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
-          <TournamentCover src={tournament.coverImage} alt={tournament.name} />
-          <div className="min-w-0">
-            <p className="text-sm font-bold uppercase tracking-widest text-muted">{formatLabel(tournament.format)}</p>
-            <h1 className="display text-3xl sm:text-4xl">{tournament.name}</h1>
-            <p className="text-muted">
-            {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)} · Juega{" "}
-            {playingDaysLabel(tournament.playingDays)}
-            {tournament.venue ? ` · ${tournament.venue}` : ""}
+      <TournamentHeading
+        src={tournament.coverImage}
+        name={tournament.name}
+        kicker={formatLabel(tournament.format)}
+        details={
+          <>
+            <p>
+              {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)} · Juega{" "}
+              {playingDaysLabel(tournament.playingDays)}
+              {tournament.venue ? ` · ${tournament.venue}` : ""}
             </p>
             {tournament.format === "GROUPS" ? (
-              <p className="text-sm text-muted">Después de grupos: {nextPhaseLabel(tournament.nextPhase)}</p>
+              <p className="text-sm">Después de grupos: {nextPhaseLabel(tournament.nextPhase)}</p>
             ) : null}
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <StatusBadge status={tournament.status} />
-          <ExportExcelButton tournamentId={id} />
-        </div>
-      </div>
+          </>
+        }
+        actions={
+          <>
+            <StatusBadge status={tournament.status} />
+            <ExportExcelButton tournamentId={id} />
+          </>
+        }
+        description={tournament.description}
+      />
       <TournamentTabs id={id} registrationOpen={tournament.registrationOpen} query={filter.query} />
       <TournamentFilterNote query={filter.query} labels={filter.labels} found={filter.found} path={`/torneos/${id}`} />
       <TournamentInfo
         tournamentId={id}
-        description={tournament.description}
         registrationFee={tournament.registrationFee}
         prizes={tournament.prizes}
         rulesHighlights={tournament.rulesHighlights}

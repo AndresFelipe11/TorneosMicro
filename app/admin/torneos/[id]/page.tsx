@@ -12,7 +12,7 @@ import { TournamentAdminsPanel } from "./TournamentAdminsPanel";
 import { TournamentScorekeepersPanel } from "./TournamentScorekeepersPanel";
 import { ExportExcelButton } from "@/components/ExportExcelButton";
 import { TournamentInfo } from "@/components/TournamentInfo";
-import { TournamentCover } from "@/components/TournamentCover";
+import { TournamentHeading } from "@/components/TournamentCover";
 import { PostponeRequestsPanel } from "@/components/PostponeRequestsPanel";
 
 export default async function AdminTournamentPage({ params }: { params: Promise<{ id: string }> }) {
@@ -70,27 +70,27 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
-          <TournamentCover src={tournament.coverImage} alt={tournament.name} />
-          <div className="min-w-0">
-            <h1 className="display text-3xl sm:text-4xl">{tournament.name}</h1>
-            <p className="text-muted">
+      <TournamentHeading
+        src={tournament.coverImage}
+        name={tournament.name}
+        details={
+          <>
+            <p>
               {formatLabel(tournament.format)} · {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)}
               {tournament.venue ? ` · ${tournament.venue}` : ""}
             </p>
             {tournament.format === "GROUPS" ? (
-              <p className="text-sm text-muted">Siguiente fase: {nextPhaseLabel(tournament.nextPhase)}</p>
+              <p className="text-sm">Siguiente fase: {nextPhaseLabel(tournament.nextPhase)}</p>
             ) : null}
-          </div>
-        </div>
-        <StatusBadge status={tournament.status} />
-      </div>
+          </>
+        }
+        actions={<StatusBadge status={tournament.status} />}
+        description={manage ? undefined : tournament.description}
+      />
       <TournamentTabs id={id} admin scorekeeper={isScorekeeper(admin)} />
       {manage ? null : (
         <TournamentInfo
           tournamentId={id}
-          description={tournament.description}
           registrationFee={tournament.registrationFee}
           prizes={tournament.prizes}
           rulesHighlights={tournament.rulesHighlights}

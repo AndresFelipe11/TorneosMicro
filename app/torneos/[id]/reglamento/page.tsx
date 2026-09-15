@@ -4,7 +4,7 @@ import { getTournament } from "@/lib/queries";
 import { canManageTournament, getAdminUser } from "@/lib/authz";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { ExportRulesPdfButton } from "@/components/ExportRulesPdfButton";
-import { TournamentCover } from "@/components/TournamentCover";
+import { TournamentHeading } from "@/components/TournamentCover";
 
 export default async function TournamentRulesPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -18,9 +18,11 @@ export default async function TournamentRulesPage({ params }: { params: Promise<
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <TournamentCover src={tournament.coverImage} alt={tournament.name} variant="page" />
-      <h1 className="display text-4xl">{tournament.name}</h1>
-      <p className="mb-4 text-muted">Reglamento del torneo.</p>
+      <TournamentHeading
+        src={tournament.coverImage}
+        name={tournament.name}
+        details={<p>Reglamento del torneo.</p>}
+      />
       <TournamentTabs id={id} registrationOpen={tournament.registrationOpen} />
       <section className="card p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
