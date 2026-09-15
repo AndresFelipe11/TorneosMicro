@@ -62,9 +62,10 @@ export function RegisterTeamForm({
       <div>
         <h2 className="display text-2xl">Inscribir equipo</h2>
         <p className="text-sm text-muted">
-          Llena el nombre de tu equipo, el WhatsApp del capitán y los jugadores. Al enviar te
-          avisamos y, si quieres, te llevamos a WhatsApp para confirmar con el administrador de{" "}
-          {tournamentName}.
+          Llena el nombre de tu equipo, el WhatsApp del capitán y los jugadores. Cuando te acepten,
+          el capitán entra con el nombre del equipo y ese número para pedir aplazar un partido. Al
+          enviar te avisamos y, si quieres, te llevamos a WhatsApp para confirmar con el
+          administrador de {tournamentName}.
         </p>
       </div>
       <label className="block space-y-1">

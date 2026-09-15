@@ -56,6 +56,13 @@ enum UserRole {
   GLOBAL_ADMIN
   TOURNAMENT_ADMIN
   SCOREKEEPER
+  CAPTAIN
+}
+
+enum PostponeRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
 }
 
 enum MatchResultLogAction {
@@ -80,6 +87,9 @@ model User {
   tournaments       TournamentAdmin[]
   scorekeeperFor    TournamentScorekeeper[]
   resultLogs        MatchResultLog[]
+  teamId            String?                 @unique
+  team              Team?                   @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  postponeRequests  MatchPostponeRequest[]
 }
 
 model Tournament {
@@ -97,9 +107,11 @@ model Tournament {
   matchDurationMinutes Int              @default(40)
   startTime            String           @default("09:00")
   venue                String?
+  coverImage           String?
   description          String?
   registrationFee      String?
   prizes               String?
+  rulesHighlights      String?
   rules                String?
   registrationOpen     Boolean          @default(false)
   createdAt            DateTime         @default(now())
@@ -155,9 +167,12 @@ model Team {
   tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   groupId      String?
   group        Group?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  whatsapp     String?
   players      Player[]
+  captain      User?
   homeMatches  Match[]    @relation("HomeTeam")
   awayMatches  Match[]    @relation("AwayTeam")
+  postponeRequests MatchPostponeRequest[]
 
   @@index([tournamentId])
 }
@@ -209,9 +224,28 @@ model Match {
   cards         MatchCard[]
   scoresheet    MatchScoresheet?
   resultLogs    MatchResultLog[]
+  postponeRequests MatchPostponeRequest[]
 
   @@index([tournamentId, scheduledAt])
   @@index([tournamentId, phase])
+}
+
+model MatchPostponeRequest {
+  id         String                @id @default(cuid())
+  matchId    String
+  match      Match                 @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  teamId     String
+  team       Team                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason     String?
+  proposedAt DateTime?
+  status     PostponeRequestStatus @default(PENDING)
+  createdAt  DateTime              @default(now())
+  resolvedAt DateTime?
+
+  @@index([matchId, status])
+  @@index([teamId])
 }
 
 model MatchResultLog {

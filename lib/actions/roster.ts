@@ -9,16 +9,18 @@ import { scheduleMatches } from "@/lib/tournament/schedule";
 import { scheduleFromDate, startOfNextWeekBogota, toBogotaDateString } from "@/lib/tournament/dates";
 import type { MatchPhase as Phase, UnscheduledMatch } from "@/lib/tournament/types";
 import { hasTournamentStarted, venueOrNull } from "@/lib/tournament/match";
+import { upsertTeamCaptain } from "@/lib/captain";
+import { normalizeWhatsApp } from "@/lib/whatsapp";
 
 function revalidateRoster(id: string) {
-  revalidatePath("/");
-  revalidatePath("/admin");
+  revalidatePath("/mi-equipo");
   revalidatePath(`/torneos/${id}`);
   revalidatePath(`/torneos/${id}/calendario`);
   revalidatePath(`/torneos/${id}/posiciones`);
   revalidatePath(`/torneos/${id}/goleadores`);
   revalidatePath(`/torneos/${id}/valla`);
   revalidatePath(`/torneos/${id}/inscribirme`);
+  revalidatePath(`/torneos/${id}/reglamento`);
   revalidatePath(`/torneos/${id}/equipos`);
   revalidatePath(`/admin/torneos/${id}`);
   revalidatePath(`/admin/torneos/${id}/datos`);
@@ -41,7 +43,13 @@ export async function updateTournamentNameAction(
   tournamentId: string,
   name: string,
   venue?: string | null,
-  info?: { description?: string | null; registrationFee?: string | null; prizes?: string | null; rules?: string | null },
+  info?: {
+    description?: string | null;
+    registrationFee?: string | null;
+    prizes?: string | null;
+    rulesHighlights?: string | null;
+    rules?: string | null;
+  },
 ) {
   const access = await requireTournamentMutation(tournamentId);
   if (!access.ok) return { error: access.error };
@@ -64,6 +72,7 @@ export async function updateTournamentNameAction(
               description: venueOrNull(info.description),
               registrationFee: venueOrNull(info.registrationFee),
               prizes: venueOrNull(info.prizes),
+              rulesHighlights: venueOrNull(info.rulesHighlights),
               rules: venueOrNull(info.rules),
             }
           : {}),
@@ -89,6 +98,7 @@ export async function updateTournamentInfoAction(
     description?: string | null;
     registrationFee?: string | null;
     prizes?: string | null;
+    rulesHighlights?: string | null;
     rules?: string | null;
   },
 ) {
@@ -108,6 +118,7 @@ export async function updateTournamentInfoAction(
       description: venueOrNull(info.description),
       registrationFee: venueOrNull(info.registrationFee),
       prizes: venueOrNull(info.prizes),
+      rulesHighlights: venueOrNull(info.rulesHighlights),
       rules: venueOrNull(info.rules),
     },
   });
@@ -120,6 +131,7 @@ export async function addTeamToTournament(input: {
   name: string;
   groupId?: string | null;
   players: string[];
+  whatsapp?: string | null;
 }) {
   const tournament = await getTournament(input.tournamentId);
   if (!tournament) return { error: "Torneo no encontrado." };
@@ -178,6 +190,10 @@ export async function addTeamToTournament(input: {
   if (scheduled.error) return { error: scheduled.error };
 
   const players = input.players.map((player) => player.trim()).filter(Boolean);
+  const whatsapp = input.whatsapp?.trim() ? normalizeWhatsApp(input.whatsapp) : null;
+  if (input.whatsapp?.trim() && !whatsapp) {
+    return { error: "El WhatsApp del capitán no es válido." };
+  }
 
   await prisma.$transaction(async (tx) => {
     const team = await tx.team.create({
@@ -185,11 +201,16 @@ export async function addTeamToTournament(input: {
         name,
         tournamentId: tournament.id,
         groupId,
+        whatsapp,
         players: {
           create: players.map((playerName, index) => ({ name: playerName, number: index + 1 })),
         },
       },
     });
+
+    if (whatsapp) {
+      await upsertTeamCaptain(tx, { teamId: team.id, teamName: name, whatsapp });
+    }
 
     const ids = new Map(tournament.teams.map((item) => [item.name, item.id]));
     ids.set(name, team.id);
@@ -227,10 +248,33 @@ export async function addTeamAction(input: {
   name: string;
   groupId?: string | null;
   players: string[];
+  whatsapp?: string | null;
 }) {
   const access = await requireTournamentMutation(input.tournamentId);
   if (!access.ok) return { error: access.error };
   return addTeamToTournament(input);
+}
+
+export async function setTeamCaptainAction(teamId: string, whatsapp: string) {
+  const team = await prisma.team.findUnique({
+    where: { id: teamId },
+    select: { id: true, name: true, tournamentId: true },
+  });
+  if (!team) return { error: "Equipo no encontrado." };
+  const access = await requireTournamentMutation(team.tournamentId);
+  if (!access.ok) return { error: access.error };
+  const phone = whatsapp.trim() ? normalizeWhatsApp(whatsapp) : null;
+  if (whatsapp.trim() && !phone) return { error: "El WhatsApp del capitán no es válido." };
+  await prisma.$transaction(async (tx) => {
+    await upsertTeamCaptain(tx, { teamId: team.id, teamName: team.name, whatsapp: phone });
+  });
+  revalidateRoster(team.tournamentId);
+  return {
+    ok: true,
+    message: phone
+      ? `El capitán de ${team.name} entra con el nombre del equipo y ese número.`
+      : "Se quitó el acceso del capitán.",
+  };
 }
 
 export async function renameTeamAction(teamId: string, name: string) {
@@ -247,7 +291,13 @@ export async function renameTeamAction(teamId: string, name: string) {
     (item) => item.id !== teamId && item.name.toLowerCase() === trimmed.toLowerCase(),
   );
   if (clash) return { error: "Ya hay un equipo con ese nombre." };
-  await prisma.team.update({ where: { id: teamId }, data: { name: trimmed } });
+  await prisma.$transaction(async (tx) => {
+    await tx.team.update({ where: { id: teamId }, data: { name: trimmed } });
+    await tx.user.updateMany({
+      where: { teamId, role: "CAPTAIN" },
+      data: { name: trimmed },
+    });
+  });
   revalidateRoster(team.tournamentId);
   return { ok: true };
 }

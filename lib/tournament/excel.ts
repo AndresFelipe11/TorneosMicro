@@ -74,6 +74,7 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
       ["Descripción", tournament.description ?? "—"],
       ["Valor de la inscripción", tournament.registrationFee ?? "—"],
       ["Premiación", tournament.prizes ?? "—"],
+      ["Reglas importantes", tournament.rulesHighlights ?? "—"],
       ["Reglamento", tournament.rules ?? "—"],
       ["Partidos por día", tournament.maxMatchesPerDay],
       ["Duración (min)", tournament.matchDurationMinutes],

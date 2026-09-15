@@ -49,6 +49,7 @@ export function RegistrationPanel({
   );
 
   const pendingRows = registrations.filter((item) => item.status === "PENDING");
+  const acceptedRows = registrations.filter((item) => item.status === "ACCEPTED");
 
   function run(task: () => Promise<{ error?: string; message?: string }>) {
     setError(null);
@@ -193,6 +194,29 @@ export function RegistrationPanel({
           </div>
         )}
       </div>
+
+      {acceptedRows.length > 0 ? (
+        <div>
+          <h3 className="display text-xl">Equipos aceptados</h3>
+          <p className="mt-1 text-sm text-muted">
+            El capitán entra con el nombre del equipo y el número de contacto como clave.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {acceptedRows.map((row) => (
+              <li key={row.id} className="rounded-2xl border border-white/10 px-4 py-3">
+                <p className="font-bold">{row.name}</p>
+                {row.whatsapp ? (
+                  <p className="text-sm text-muted">
+                    Usuario: {row.name} · Clave: {row.whatsapp}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted">Sin número de capitán.</p>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
 
       {error ? <p className="font-semibold text-red-400">{error}</p> : null}
       {message ? <p className="font-semibold text-lime">{message}</p> : null}

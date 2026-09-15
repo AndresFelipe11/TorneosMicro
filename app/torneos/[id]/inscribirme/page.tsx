@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTournament } from "@/lib/queries";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { TournamentInfo } from "@/components/TournamentInfo";
+import { TournamentCover } from "@/components/TournamentCover";
 import { RegisterTeamForm } from "./RegisterTeamForm";
 
 export default async function RegisterTeamPage({ params }: { params: Promise<{ id: string }> }) {
@@ -12,14 +13,18 @@ export default async function RegisterTeamPage({ params }: { params: Promise<{ i
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
+      <TournamentCover src={tournament.coverImage} alt={tournament.name} variant="page" />
       <h1 className="display text-4xl">{tournament.name}</h1>
       <p className="mb-4 text-muted">Inscribe tu equipo.</p>
       <TournamentTabs id={id} registrationOpen={tournament.registrationOpen} />
       <TournamentInfo
+        tournamentId={id}
         description={tournament.description}
         registrationFee={tournament.registrationFee}
         prizes={tournament.prizes}
+        rulesHighlights={tournament.rulesHighlights}
         rules={tournament.rules}
+        rulesHref={`/torneos/${id}/reglamento`}
       />
       {tournament.registrationOpen && tournament.status !== "FINISHED" ? (
         <RegisterTeamForm

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getTournaments } from "@/lib/queries";
 import { formatDate, formatLabel, statusLabel } from "@/lib/format";
+import { TournamentCover } from "@/components/TournamentCover";
 import { StatusBadge } from "@/components/MatchList";
 
 export default async function HomePage() {
@@ -36,6 +37,7 @@ export default async function HomePage() {
           <div className="grid gap-4 sm:grid-cols-2">
             {tournaments.map((tournament) => (
               <Link key={tournament.id} href={`/torneos/${tournament.id}`} className="card p-5 no-underline text-ink">
+                <TournamentCover src={tournament.coverImage} alt={tournament.name} variant="card" />
                 <div className="flex items-start justify-between gap-3">
                   <h3 className="display min-w-0 text-xl leading-tight sm:text-2xl">{tournament.name}</h3>
                   <StatusBadge status={tournament.status} />

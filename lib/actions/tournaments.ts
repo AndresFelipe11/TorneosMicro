@@ -23,6 +23,7 @@ function revalidateTournament(id: string) {
   revalidatePath(`/torneos/${id}/posiciones`);
   revalidatePath(`/torneos/${id}/goleadores`);
   revalidatePath(`/torneos/${id}/valla`);
+  revalidatePath(`/torneos/${id}/reglamento`);
   revalidatePath(`/torneos/${id}/equipos`);
   revalidatePath(`/admin/torneos/${id}`);
   revalidatePath(`/admin/torneos/${id}/datos`);
@@ -61,6 +62,7 @@ export async function createTournamentAction(input: {
         description: venueOrNull(config.description),
         registrationFee: venueOrNull(config.registrationFee),
         prizes: venueOrNull(config.prizes),
+        rulesHighlights: venueOrNull(config.rulesHighlights),
         rules: venueOrNull(config.rules),
       },
     });

@@ -12,6 +12,8 @@ import { TournamentAdminsPanel } from "./TournamentAdminsPanel";
 import { TournamentScorekeepersPanel } from "./TournamentScorekeepersPanel";
 import { ExportExcelButton } from "@/components/ExportExcelButton";
 import { TournamentInfo } from "@/components/TournamentInfo";
+import { TournamentCover } from "@/components/TournamentCover";
+import { PostponeRequestsPanel } from "@/components/PostponeRequestsPanel";
 
 export default async function AdminTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -19,7 +21,7 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
   const tournament = await getTournament(id);
   if (!tournament) notFound();
   const manage = canManageTournament(admin, id);
-  const [resultLogs, adminCandidates, assignedAdminIds, scorekeeperCandidates, assignedScorekeeperIds] =
+  const [resultLogs, adminCandidates, assignedAdminIds, scorekeeperCandidates, assignedScorekeeperIds, postponeRequests] =
     await Promise.all([
       getTournamentResultLogs(id),
       isGlobalAdmin(admin)
@@ -46,29 +48,52 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
             .findMany({ where: { tournamentId: id }, select: { userId: true } })
             .then((rows) => rows.map((item) => item.userId))
         : Promise.resolve([]),
+      manage
+        ? prisma.matchPostponeRequest.findMany({
+            where: { status: "PENDING", match: { tournamentId: id } },
+            orderBy: { createdAt: "asc" },
+            include: {
+              team: { select: { name: true } },
+              match: {
+                select: {
+                  id: true,
+                  scheduledAt: true,
+                  venue: true,
+                  homeTeam: { select: { name: true } },
+                  awayTeam: { select: { name: true } },
+                },
+              },
+            },
+          })
+        : Promise.resolve([]),
     ]);
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="display text-3xl sm:text-4xl">{tournament.name}</h1>
-          <p className="text-muted">
-            {formatLabel(tournament.format)} · {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)}
-            {tournament.venue ? ` · ${tournament.venue}` : ""}
-          </p>
-          {tournament.format === "GROUPS" ? (
-            <p className="text-sm text-muted">Siguiente fase: {nextPhaseLabel(tournament.nextPhase)}</p>
-          ) : null}
+      <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-start">
+          <TournamentCover src={tournament.coverImage} alt={tournament.name} />
+          <div className="min-w-0">
+            <h1 className="display text-3xl sm:text-4xl">{tournament.name}</h1>
+            <p className="text-muted">
+              {formatLabel(tournament.format)} · {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)}
+              {tournament.venue ? ` · ${tournament.venue}` : ""}
+            </p>
+            {tournament.format === "GROUPS" ? (
+              <p className="text-sm text-muted">Siguiente fase: {nextPhaseLabel(tournament.nextPhase)}</p>
+            ) : null}
+          </div>
         </div>
         <StatusBadge status={tournament.status} />
       </div>
       <TournamentTabs id={id} admin scorekeeper={isScorekeeper(admin)} />
       {manage ? null : (
         <TournamentInfo
+          tournamentId={id}
           description={tournament.description}
           registrationFee={tournament.registrationFee}
           prizes={tournament.prizes}
+          rulesHighlights={tournament.rulesHighlights}
           rules={tournament.rules}
           rulesHref={`/torneos/${id}/reglamento`}
         />
@@ -91,6 +116,22 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
           <FinishButton tournamentId={id} />
           {isGlobalAdmin(admin) ? <DeleteTournamentButton tournamentId={id} /> : null}
         </div>
+      ) : null}
+      {manage ? (
+        <PostponeRequestsPanel
+          requests={postponeRequests.map((item) => ({
+            id: item.id,
+            reason: item.reason,
+            proposedAt: item.proposedAt,
+            createdAt: item.createdAt,
+            teamName: item.team.name,
+            homeTeam: item.match.homeTeam.name,
+            awayTeam: item.match.awayTeam.name,
+            currentScheduledAt: item.match.scheduledAt,
+            matchId: item.match.id,
+            venue: item.match.venue ?? tournament.venue ?? "",
+          }))}
+        />
       ) : null}
       <p className="mb-3 text-sm text-muted">
         {isScorekeeper(admin)

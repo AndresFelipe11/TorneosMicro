@@ -16,6 +16,7 @@ export const tournamentInclude = {
     include: {
       players: { orderBy: { name: "asc" as const } },
       group: true,
+      captain: { select: { id: true } },
     },
     orderBy: { name: "asc" as const },
   },

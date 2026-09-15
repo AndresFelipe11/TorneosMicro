@@ -21,3 +21,17 @@ export function registrationWhatsAppMessage(
   const contact = captainWhatsApp ? ` WhatsApp del capitán: ${captainWhatsApp}.` : "";
   return `Hola, quiero jugar el torneo ${tournamentName} con mi equipo ${teamName}.${roster}${contact}`;
 }
+
+export function postponeWhatsAppMessage(input: {
+  tournamentName: string;
+  teamName: string;
+  homeTeam: string;
+  awayTeam: string;
+  currentWhen: string;
+  proposedWhen?: string | null;
+  reason?: string | null;
+}) {
+  const proposed = input.proposedWhen ? ` Propone: ${input.proposedWhen}.` : "";
+  const reason = input.reason?.trim() ? ` Motivo: ${input.reason.trim()}.` : "";
+  return `Hola, soy el capitán de ${input.teamName} en ${input.tournamentName}. Pido aplazar ${input.homeTeam} vs ${input.awayTeam} (ahora ${input.currentWhen}).${proposed}${reason}`;
+}

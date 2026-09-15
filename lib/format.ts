@@ -148,5 +148,6 @@ export function cardLabel(type: "YELLOW" | "RED") {
 export function roleLabel(role: string) {
   if (role === "GLOBAL_ADMIN") return "Admin global";
   if (role === "SCOREKEEPER") return "Planillero";
+  if (role === "CAPTAIN") return "Capitán";
   return "Admin de torneo";
 }

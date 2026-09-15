@@ -164,6 +164,7 @@ export async function acceptTeamRegistrationAction(input: {
     name: registration.name,
     groupId: input.groupId ?? registration.groupId,
     players: registration.players,
+    whatsapp: registration.whatsapp,
   });
   if (result.error) return result;
 

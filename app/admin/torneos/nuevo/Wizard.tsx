@@ -48,6 +48,7 @@ export function Wizard() {
     description: "",
     registrationFee: "",
     prizes: "",
+    rulesHighlights: "",
     rules: "",
     teams: [emptyTeam(), emptyTeam(), emptyTeam(), emptyTeam()],
   });
@@ -181,10 +182,18 @@ export function Wizard() {
               onChange={(e) => update("prizes", e.target.value)}
             />
           </Field>
-          <Field label="Reglamento">
+          <Field label="Reglas importantes">
+            <textarea
+              className="field min-h-24"
+              placeholder="Las normas clave que se ven en el resumen: duración, tarjetas, W.O., etc."
+              value={config.rulesHighlights ?? ""}
+              onChange={(e) => update("rulesHighlights", e.target.value)}
+            />
+          </Field>
+          <Field label="Reglamento completo">
             <textarea
               className="field min-h-40"
-              placeholder="Duración de los partidos, tarjetas, W.O., inscripciones tardías y otras normas."
+              placeholder="Texto completo para la pestaña Reglamento y el PDF."
               value={config.rules ?? ""}
               onChange={(e) => update("rules", e.target.value)}
             />

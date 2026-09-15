@@ -1,8 +1,41 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
 import type { UserRole } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { passwordMatches } from "@/lib/captain";
+
+const ROLES: UserRole[] = ["GLOBAL_ADMIN", "TOURNAMENT_ADMIN", "SCOREKEEPER", "CAPTAIN"];
+
+function asRole(value: unknown): UserRole {
+  if (value === "GLOBAL_ADMIN" || value === "TOURNAMENT_ADMIN" || value === "SCOREKEEPER" || value === "CAPTAIN") {
+    return value;
+  }
+  return "TOURNAMENT_ADMIN";
+}
+
+async function findUserForLogin(login: string, password: string) {
+  const email = login.trim().toLowerCase();
+  const byEmail = email.includes("@")
+    ? await prisma.user.findUnique({ where: { email } })
+    : null;
+  if (byEmail && (await passwordMatches(password, byEmail.passwordHash))) return byEmail;
+
+  const name = login.trim();
+  if (!name) return null;
+  const captains = await prisma.user.findMany({
+    where: {
+      role: "CAPTAIN",
+      OR: [
+        { name: { equals: name, mode: "insensitive" } },
+        { team: { is: { name: { equals: name, mode: "insensitive" } } } },
+      ],
+    },
+  });
+  for (const captain of captains) {
+    if (await passwordMatches(password, captain.passwordHash)) return captain;
+  }
+  return null;
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   trustHost: true,
@@ -12,22 +45,15 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
     Credentials({
       credentials: {
-        email: { label: "Email", type: "email" },
+        email: { label: "Usuario", type: "text" },
         password: { label: "Contraseña", type: "password" },
       },
       async authorize(credentials) {
-        const email = String(credentials?.email ?? "")
-          .trim()
-          .toLowerCase();
+        const login = String(credentials?.email ?? "").trim();
         const password = String(credentials?.password ?? "");
-        if (!email || !password) return null;
-
-        const user = await prisma.user.findUnique({ where: { email } });
+        if (!login || !password) return null;
+        const user = await findUserForLogin(login, password);
         if (!user) return null;
-
-        const valid = await bcrypt.compare(password, user.passwordHash);
-        if (!valid) return null;
-
         return { id: user.id, email: user.email, name: user.name, role: user.role };
       },
     }),
@@ -37,21 +63,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.sub = user.id;
         const role = (user as { role?: UserRole }).role;
-        if (role === "GLOBAL_ADMIN" || role === "TOURNAMENT_ADMIN" || role === "SCOREKEEPER") {
-          token.role = role;
-        }
+        if (role && ROLES.includes(role)) token.role = role;
       }
       return token;
     },
     session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub;
-        session.user.role =
-          token.role === "GLOBAL_ADMIN"
-            ? "GLOBAL_ADMIN"
-            : token.role === "SCOREKEEPER"
-              ? "SCOREKEEPER"
-              : "TOURNAMENT_ADMIN";
+        session.user.role = asRole(token.role);
       }
       return session;
     },

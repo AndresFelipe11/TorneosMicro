@@ -9,6 +9,7 @@ import {
   deletePlayerAction,
   deleteTeamAction,
   renameTeamAction,
+  setTeamCaptainAction,
   updatePlayerAction,
   updateTournamentNameAction,
 } from "@/lib/actions/roster";
@@ -20,6 +21,8 @@ type Team = {
   name: string;
   groupId: string | null;
   group: { name: string } | null;
+  whatsapp: string | null;
+  captain: { id: string } | null;
   players: Player[];
 };
 
@@ -33,6 +36,7 @@ export function RosterEditor({
   description: initialDescription,
   registrationFee: initialFee,
   prizes: initialPrizes,
+  rulesHighlights: initialHighlights,
   rules: initialRules,
 }: {
   tournamentId: string;
@@ -44,6 +48,7 @@ export function RosterEditor({
   description: string;
   registrationFee: string;
   prizes: string;
+  rulesHighlights: string;
   rules: string;
 }) {
   const router = useRouter();
@@ -56,10 +61,12 @@ export function RosterEditor({
   const [description, setDescription] = useState(initialDescription);
   const [registrationFee, setRegistrationFee] = useState(initialFee);
   const [prizes, setPrizes] = useState(initialPrizes);
+  const [rulesHighlights, setRulesHighlights] = useState(initialHighlights);
   const [rules, setRules] = useState(initialRules);
   const [newTeam, setNewTeam] = useState("");
   const [newGroup, setNewGroup] = useState(groups[0]?.id ?? "");
   const [newPlayers, setNewPlayers] = useState("");
+  const [newWhatsapp, setNewWhatsapp] = useState("");
 
   useEffect(() => {
     setName(tournamentName);
@@ -67,8 +74,9 @@ export function RosterEditor({
     setDescription(initialDescription);
     setRegistrationFee(initialFee);
     setPrizes(initialPrizes);
+    setRulesHighlights(initialHighlights);
     setRules(initialRules);
-  }, [tournamentName, initialVenue, initialDescription, initialFee, initialPrizes, initialRules]);
+  }, [tournamentName, initialVenue, initialDescription, initialFee, initialPrizes, initialHighlights, initialRules]);
 
   function run(task: () => Promise<{ error?: string; message?: string; ok?: boolean } | void>) {
     setError(null);
@@ -95,6 +103,7 @@ export function RosterEditor({
               description,
               registrationFee,
               prizes,
+              rulesHighlights,
               rules,
             }),
           );
@@ -144,10 +153,19 @@ export function RosterEditor({
           />
         </label>
         <label className="block space-y-1">
-          <span className="text-sm font-semibold">Reglamento</span>
+          <span className="text-sm font-semibold">Reglas importantes</span>
+          <textarea
+            className="field min-h-24"
+            placeholder="Las normas clave que se ven en el resumen: duración, tarjetas, W.O., etc."
+            value={rulesHighlights}
+            onChange={(e) => setRulesHighlights(e.target.value)}
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-sm font-semibold">Reglamento completo</span>
           <textarea
             className="field min-h-40"
-            placeholder="Duración de los partidos, tarjetas, W.O., inscripciones tardías y otras normas."
+            placeholder="Texto completo para la pestaña Reglamento y el PDF."
             value={rules}
             onChange={(e) => setRules(e.target.value)}
           />
@@ -174,10 +192,12 @@ export function RosterEditor({
               name: newTeam,
               groupId: format === "GROUPS" ? newGroup : null,
               players: newPlayers.split(","),
+              whatsapp: newWhatsapp,
             });
             if (!result.error) {
               setNewTeam("");
               setNewPlayers("");
+              setNewWhatsapp("");
             }
             return result;
           });
@@ -214,6 +234,12 @@ export function RosterEditor({
           value={newPlayers}
           onChange={(e) => setNewPlayers(e.target.value)}
         />
+        <input
+          className="field"
+          placeholder="WhatsApp del capitán (usuario = nombre del equipo, clave = este número)"
+          value={newWhatsapp}
+          onChange={(e) => setNewWhatsapp(e.target.value)}
+        />
         <button className="btn btn-lime" disabled={pending} type="submit">
           Agregar equipo
         </button>
@@ -238,6 +264,7 @@ export function RosterEditor({
             }}
             onAddPlayer={(value) => run(() => addPlayerAction(team.id, value))}
             onRenamePlayer={(playerId, value) => run(() => updatePlayerAction(playerId, value))}
+            onCaptain={(value) => run(() => setTeamCaptainAction(team.id, value))}
             onDeletePlayer={async (player) => {
               const ok = await ask({
                 title: "Quitar jugador",
@@ -266,6 +293,7 @@ function TeamCard({
   onAddPlayer,
   onRenamePlayer,
   onDeletePlayer,
+  onCaptain,
 }: {
   team: Team;
   pending: boolean;
@@ -274,13 +302,16 @@ function TeamCard({
   onAddPlayer: (name: string) => void;
   onRenamePlayer: (playerId: string, name: string) => void;
   onDeletePlayer: (player: Player) => void;
+  onCaptain: (whatsapp: string) => void;
 }) {
   const [teamName, setTeamName] = useState(team.name);
   const [playerName, setPlayerName] = useState("");
+  const [whatsapp, setWhatsapp] = useState(team.whatsapp ?? "");
 
   useEffect(() => {
     setTeamName(team.name);
-  }, [team.name]);
+    setWhatsapp(team.whatsapp ?? "");
+  }, [team.name, team.whatsapp]);
 
   return (
     <section className="card space-y-4 p-4">
@@ -296,6 +327,24 @@ function TeamCard({
           Eliminar
         </button>
       </div>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+        <input
+          className="field min-w-0 flex-1"
+          placeholder="WhatsApp del capitán"
+          value={whatsapp}
+          onChange={(e) => setWhatsapp(e.target.value)}
+        />
+        <button type="button" className="btn btn-dark shrink-0" disabled={pending} onClick={() => onCaptain(whatsapp)}>
+          Guardar acceso
+        </button>
+      </div>
+      {team.captain ? (
+        <p className="text-xs text-muted">
+          El capitán entra con el nombre del equipo y ese número.
+        </p>
+      ) : (
+        <p className="text-xs text-muted">Sin acceso de capitán todavía.</p>
+      )}
 
       <ul className="space-y-2">
         {team.players.length === 0 ? (

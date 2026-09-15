@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ExportRulesPdfButton } from "@/components/ExportRulesPdfButton";
 
 function InfoBlock({ title, text }: { title: string; text: string }) {
   return (
@@ -10,16 +11,20 @@ function InfoBlock({ title, text }: { title: string; text: string }) {
 }
 
 export function TournamentInfo({
+  tournamentId,
   description,
   registrationFee,
   prizes,
+  rulesHighlights,
   rules,
   rulesHref,
   editHref,
 }: {
+  tournamentId: string;
   description?: string | null;
   registrationFee?: string | null;
   prizes?: string | null;
+  rulesHighlights?: string | null;
   rules?: string | null;
   rulesHref?: string;
   editHref?: string;
@@ -28,7 +33,9 @@ export function TournamentInfo({
   const feeText = registrationFee?.trim() ?? "";
   const prizesText = prizes?.trim() ?? "";
   const rulesText = rules?.trim() ?? "";
-  const empty = !descriptionText && !feeText && !prizesText && !rulesText;
+  const highlightsText = rulesHighlights?.trim() || rulesText;
+  const canDownloadPdf = Boolean(rulesText || rulesHighlights?.trim());
+  const empty = !descriptionText && !feeText && !prizesText && !highlightsText;
   if (empty && !editHref) return null;
 
   return (
@@ -40,20 +47,19 @@ export function TournamentInfo({
       ) : null}
       {feeText ? <InfoBlock title="Valor de la inscripción" text={feeText} /> : null}
       {prizesText ? <InfoBlock title="Premiación" text={prizesText} /> : null}
-      {rulesText && rulesHref ? (
-        <div className="sm:col-span-2 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h3 className="text-sm font-bold uppercase tracking-wide text-muted">Reglamento</h3>
-            <p className="mt-1 text-sm text-muted">Duración, tarjetas, W.O. y el resto de normas del torneo.</p>
-          </div>
-          <Link href={rulesHref} className="btn btn-dark w-full text-center text-sm sm:w-auto">
-            Ver reglamento
-          </Link>
-        </div>
-      ) : null}
-      {rulesText && !rulesHref ? (
+      {highlightsText ? (
         <div className="sm:col-span-2">
-          <InfoBlock title="Reglamento" text={rulesText} />
+          <InfoBlock title="Reglas importantes" text={highlightsText} />
+          {canDownloadPdf || rulesHref ? (
+            <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+              {canDownloadPdf ? <ExportRulesPdfButton tournamentId={tournamentId} /> : null}
+              {rulesHref ? (
+                <Link href={rulesHref} className="btn btn-dark w-full text-center text-sm sm:w-auto">
+                  Ver reglamento completo
+                </Link>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
       {empty ? (

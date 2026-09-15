@@ -12,6 +12,7 @@ export type AdminUser = {
   whatsapp: string | null;
   tournamentIds: string[];
   scorekeeperTournamentIds: string[];
+  team: { id: string; name: string; tournamentId: string } | null;
 };
 
 export const getAdminUser = cache(async (): Promise<AdminUser | null> => {
@@ -28,6 +29,7 @@ export const getAdminUser = cache(async (): Promise<AdminUser | null> => {
       whatsapp: true,
       tournaments: { select: { tournamentId: true } },
       scorekeeperFor: { select: { tournamentId: true } },
+      team: { select: { id: true, name: true, tournamentId: true } },
     },
   });
   if (!user) return null;
@@ -40,11 +42,16 @@ export const getAdminUser = cache(async (): Promise<AdminUser | null> => {
     whatsapp: user.whatsapp,
     tournamentIds: user.tournaments.map((item) => item.tournamentId),
     scorekeeperTournamentIds: user.scorekeeperFor.map((item) => item.tournamentId),
+    team: user.team,
   };
 });
 
 export function isGlobalAdmin(user: AdminUser) {
   return user.role === "GLOBAL_ADMIN";
+}
+
+export function isCaptain(user: AdminUser) {
+  return user.role === "CAPTAIN";
 }
 
 export function isScorekeeper(user: AdminUser) {
@@ -66,6 +73,14 @@ export function canAccessTournament(user: AdminUser, tournamentId: string) {
 export async function requireAnyAdmin() {
   const user = await getAdminUser();
   if (!user) redirect("/login");
+  if (isCaptain(user)) redirect("/mi-equipo");
+  return user;
+}
+
+export async function requireCaptain() {
+  const user = await getAdminUser();
+  if (!user) redirect("/login");
+  if (!isCaptain(user) || !user.team) redirect("/admin");
   return user;
 }
 
@@ -87,9 +102,19 @@ export async function requireTournamentManagePage(tournamentId: string) {
   return user;
 }
 
+export async function requireCaptainMutation() {
+  const user = await getAdminUser();
+  if (!user) return { ok: false as const, error: "Debes iniciar sesión." };
+  if (!isCaptain(user) || !user.team) {
+    return { ok: false as const, error: "Solo el capitán del equipo puede hacer esta petición." };
+  }
+  return { ok: true as const, user, team: user.team };
+}
+
 export async function requireAnyAdminMutation() {
   const user = await getAdminUser();
   if (!user) return { ok: false as const, error: "Debes iniciar sesión." };
+  if (isCaptain(user)) return { ok: false as const, error: "Esta acción es solo para administradores." };
   return { ok: true as const, user };
 }
 

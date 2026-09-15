@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getAdminUser, isGlobalAdmin } from "@/lib/authz";
+import { getAdminUser, isCaptain, isGlobalAdmin } from "@/lib/authz";
 import { logoutAction } from "@/lib/actions/auth";
 
 export async function Header() {
@@ -24,9 +24,15 @@ export async function Header() {
             </Link>
             {admin ? (
               <>
-                <Link href="/admin" className="text-cream/85 hover:text-lime">
-                  Admin
-                </Link>
+                {isCaptain(admin) ? (
+                  <Link href="/mi-equipo" className="text-cream/85 hover:text-lime">
+                    Mi equipo
+                  </Link>
+                ) : (
+                  <Link href="/admin" className="text-cream/85 hover:text-lime">
+                    Admin
+                  </Link>
+                )}
                 {isGlobalAdmin(admin) ? (
                   <Link href="/admin/usuarios" className="hidden text-cream/85 hover:text-lime sm:inline">
                     Usuarios

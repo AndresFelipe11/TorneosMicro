@@ -6,6 +6,7 @@ export default async function UsersPage() {
   const admin = await requireGlobalAdmin();
   const [users, tournaments] = await Promise.all([
     prisma.user.findMany({
+      where: { role: { not: "CAPTAIN" } },
       orderBy: { createdAt: "asc" },
       include: {
         tournaments: { select: { tournamentId: true } },
@@ -31,7 +32,7 @@ export default async function UsersPage() {
           id: user.id,
           name: user.name,
           email: user.email,
-          role: user.role,
+          role: user.role as "GLOBAL_ADMIN" | "TOURNAMENT_ADMIN" | "SCOREKEEPER",
           whatsapp: user.whatsapp ?? "",
           tournamentIds:
             user.role === "SCOREKEEPER"

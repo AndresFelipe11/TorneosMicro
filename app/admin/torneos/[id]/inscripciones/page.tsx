@@ -2,12 +2,14 @@ import { notFound } from "next/navigation";
 import { getTeamRegistrations, getTournament } from "@/lib/queries";
 import { requireTournamentManagePage } from "@/lib/authz";
 import { resolveTournamentWhatsApp } from "@/lib/actions/registration";
+import { syncCaptainsFromAcceptedRegistrations } from "@/lib/captain";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { RegistrationPanel } from "@/components/RegistrationPanel";
 
 export default async function TournamentRegistrationsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const admin = await requireTournamentManagePage(id);
+  await syncCaptainsFromAcceptedRegistrations(id);
   const tournament = await getTournament(id);
   if (!tournament) notFound();
   const [registrations, contactWhatsApp] = await Promise.all([

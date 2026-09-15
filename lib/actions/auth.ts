@@ -11,12 +11,12 @@ export async function loginAction(
     await signIn("credentials", {
       email: String(formData.get("email") ?? ""),
       password: String(formData.get("password") ?? ""),
-      redirectTo: "/admin",
+      redirectTo: "/despues-de-entrar",
     });
     return null;
   } catch (error) {
     if (error instanceof AuthError) {
-      return { error: "Correo o contraseña incorrectos." };
+      return { error: "Usuario o contraseña incorrectos." };
     }
     throw error;
   }

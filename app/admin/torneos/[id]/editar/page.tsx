@@ -1,12 +1,14 @@
 import { notFound } from "next/navigation";
 import { getTournament } from "@/lib/queries";
 import { requireTournamentManagePage } from "@/lib/authz";
+import { syncCaptainsFromAcceptedRegistrations } from "@/lib/captain";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { RosterEditor } from "./RosterEditor";
 
 export default async function EditTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await requireTournamentManagePage(id);
+  await syncCaptainsFromAcceptedRegistrations(id);
   const tournament = await getTournament(id);
   if (!tournament) notFound();
 
@@ -27,6 +29,7 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
         description={tournament.description ?? ""}
         registrationFee={tournament.registrationFee ?? ""}
         prizes={tournament.prizes ?? ""}
+        rulesHighlights={tournament.rulesHighlights ?? ""}
         rules={tournament.rules ?? ""}
       />
     </div>

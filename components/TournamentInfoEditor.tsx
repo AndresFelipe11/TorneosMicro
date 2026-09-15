@@ -10,6 +10,7 @@ export function TournamentInfoEditor({
   description: initialDescription,
   registrationFee: initialFee,
   prizes: initialPrizes,
+  rulesHighlights: initialHighlights,
   rules: initialRules,
 }: {
   tournamentId: string;
@@ -17,6 +18,7 @@ export function TournamentInfoEditor({
   description: string;
   registrationFee: string;
   prizes: string;
+  rulesHighlights: string;
   rules: string;
 }) {
   const router = useRouter();
@@ -27,6 +29,7 @@ export function TournamentInfoEditor({
   const [description, setDescription] = useState(initialDescription);
   const [registrationFee, setRegistrationFee] = useState(initialFee);
   const [prizes, setPrizes] = useState(initialPrizes);
+  const [rulesHighlights, setRulesHighlights] = useState(initialHighlights);
   const [rules, setRules] = useState(initialRules);
 
   useEffect(() => {
@@ -34,8 +37,9 @@ export function TournamentInfoEditor({
     setDescription(initialDescription);
     setRegistrationFee(initialFee);
     setPrizes(initialPrizes);
+    setRulesHighlights(initialHighlights);
     setRules(initialRules);
-  }, [initialName, initialDescription, initialFee, initialPrizes, initialRules]);
+  }, [initialName, initialDescription, initialFee, initialPrizes, initialHighlights, initialRules]);
 
   return (
     <form
@@ -51,6 +55,7 @@ export function TournamentInfoEditor({
             description,
             registrationFee,
             prizes,
+            rulesHighlights,
             rules,
           });
           if (result.error) setError(result.error);
@@ -97,13 +102,24 @@ export function TournamentInfoEditor({
         />
       </label>
       <label className="block space-y-1">
-        <span className="text-sm font-semibold">Reglamento</span>
+        <span className="text-sm font-semibold">Reglas importantes</span>
+        <textarea
+          className="field min-h-24"
+          placeholder="Las normas clave que se ven en el resumen: duración, tarjetas, W.O., etc."
+          value={rulesHighlights}
+          onChange={(e) => setRulesHighlights(e.target.value)}
+        />
+        <span className="text-xs text-muted">Aparecen en la ficha del torneo.</span>
+      </label>
+      <label className="block space-y-1">
+        <span className="text-sm font-semibold">Reglamento completo</span>
         <textarea
           className="field min-h-40"
-          placeholder="Duración de los partidos, tarjetas, W.O., inscripciones tardías y otras normas."
+          placeholder="Texto completo para la pestaña Reglamento y el PDF."
           value={rules}
           onChange={(e) => setRules(e.target.value)}
         />
+        <span className="text-xs text-muted">Si dejas las reglas importantes vacías, en el resumen se muestra este texto.</span>
       </label>
       {error ? <p className="font-semibold text-red-400">{error}</p> : null}
       {message ? <p className="font-semibold text-lime">{message}</p> : null}
