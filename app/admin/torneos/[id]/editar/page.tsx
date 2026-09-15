@@ -27,6 +27,7 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
         description={tournament.description ?? ""}
         registrationFee={tournament.registrationFee ?? ""}
         prizes={tournament.prizes ?? ""}
+        rules={tournament.rules ?? ""}
       />
     </div>
   );

@@ -9,7 +9,7 @@ function tournamentSearchTarget(pathname: string) {
     const [, id, rest] = publicMatch;
     const stay =
       rest === "" ||
-      /^\/(calendario|posiciones|goleadores|valla|equipos(\/[^/]+)?|partidos\/[^/]+)$/.test(rest);
+      /^\/(calendario|posiciones|goleadores|valla|reglamento|equipos(\/[^/]+)?|partidos\/[^/]+)$/.test(rest);
     return { href: stay ? pathname : `/torneos/${id}` };
   }
 

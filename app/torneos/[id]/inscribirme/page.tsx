@@ -19,6 +19,7 @@ export default async function RegisterTeamPage({ params }: { params: Promise<{ i
         description={tournament.description}
         registrationFee={tournament.registrationFee}
         prizes={tournament.prizes}
+        rules={tournament.rules}
       />
       {tournament.registrationOpen && tournament.status !== "FINISHED" ? (
         <RegisterTeamForm

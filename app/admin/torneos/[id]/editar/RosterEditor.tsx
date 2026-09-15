@@ -33,6 +33,7 @@ export function RosterEditor({
   description: initialDescription,
   registrationFee: initialFee,
   prizes: initialPrizes,
+  rules: initialRules,
 }: {
   tournamentId: string;
   tournamentName: string;
@@ -43,6 +44,7 @@ export function RosterEditor({
   description: string;
   registrationFee: string;
   prizes: string;
+  rules: string;
 }) {
   const router = useRouter();
   const ask = useAskConfirm();
@@ -54,6 +56,7 @@ export function RosterEditor({
   const [description, setDescription] = useState(initialDescription);
   const [registrationFee, setRegistrationFee] = useState(initialFee);
   const [prizes, setPrizes] = useState(initialPrizes);
+  const [rules, setRules] = useState(initialRules);
   const [newTeam, setNewTeam] = useState("");
   const [newGroup, setNewGroup] = useState(groups[0]?.id ?? "");
   const [newPlayers, setNewPlayers] = useState("");
@@ -64,7 +67,8 @@ export function RosterEditor({
     setDescription(initialDescription);
     setRegistrationFee(initialFee);
     setPrizes(initialPrizes);
-  }, [tournamentName, initialVenue, initialDescription, initialFee, initialPrizes]);
+    setRules(initialRules);
+  }, [tournamentName, initialVenue, initialDescription, initialFee, initialPrizes, initialRules]);
 
   function run(task: () => Promise<{ error?: string; message?: string; ok?: boolean } | void>) {
     setError(null);
@@ -91,11 +95,12 @@ export function RosterEditor({
               description,
               registrationFee,
               prizes,
+              rules,
             }),
           );
         }}
       >
-        <h2 className="display text-2xl">Nombre, descripción y premiación</h2>
+        <h2 className="display text-2xl">Nombre, descripción y reglamento</h2>
         <div className="grid gap-3 sm:grid-cols-2">
           <label className="block space-y-1">
             <span className="text-sm font-semibold">Nombre del torneo</span>
@@ -136,6 +141,15 @@ export function RosterEditor({
             placeholder="Ej. 1° $400.000 · 2° $200.000 · Goleador medalla."
             value={prizes}
             onChange={(e) => setPrizes(e.target.value)}
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-sm font-semibold">Reglamento</span>
+          <textarea
+            className="field min-h-40"
+            placeholder="Duración de los partidos, tarjetas, W.O., inscripciones tardías y otras normas."
+            value={rules}
+            onChange={(e) => setRules(e.target.value)}
           />
         </label>
         <button className="btn btn-dark" disabled={pending} type="submit">

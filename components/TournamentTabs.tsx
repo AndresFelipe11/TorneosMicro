@@ -39,6 +39,7 @@ export function TournamentTabs({
         ]
     : [
         { href: base, label: "Resumen" },
+        { href: `${base}/reglamento`, label: "Reglamento" },
         { href: `${base}/calendario`, label: "Calendario" },
         { href: `${base}/posiciones`, label: "Posiciones" },
         { href: `${base}/goleadores`, label: "Goleadores" },

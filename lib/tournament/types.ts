@@ -25,6 +25,7 @@ export type TournamentConfig = {
   description?: string;
   registrationFee?: string;
   prizes?: string;
+  rules?: string;
   teams: TeamInput[];
 };
 

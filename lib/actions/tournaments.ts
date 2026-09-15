@@ -61,6 +61,7 @@ export async function createTournamentAction(input: {
         description: venueOrNull(config.description),
         registrationFee: venueOrNull(config.registrationFee),
         prizes: venueOrNull(config.prizes),
+        rules: venueOrNull(config.rules),
       },
     });
 

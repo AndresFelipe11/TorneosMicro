@@ -69,6 +69,8 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
           description={tournament.description}
           registrationFee={tournament.registrationFee}
           prizes={tournament.prizes}
+          rules={tournament.rules}
+          rulesHref={`/torneos/${id}/reglamento`}
         />
       )}
       {manage ? (

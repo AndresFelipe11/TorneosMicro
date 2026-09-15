@@ -48,6 +48,7 @@ export function Wizard() {
     description: "",
     registrationFee: "",
     prizes: "",
+    rules: "",
     teams: [emptyTeam(), emptyTeam(), emptyTeam(), emptyTeam()],
   });
 
@@ -178,6 +179,14 @@ export function Wizard() {
               placeholder="Ej. 1° $400.000 · 2° $200.000 · Goleador medalla."
               value={config.prizes ?? ""}
               onChange={(e) => update("prizes", e.target.value)}
+            />
+          </Field>
+          <Field label="Reglamento">
+            <textarea
+              className="field min-h-40"
+              placeholder="Duración de los partidos, tarjetas, W.O., inscripciones tardías y otras normas."
+              value={config.rules ?? ""}
+              onChange={(e) => update("rules", e.target.value)}
             />
           </Field>
         </div>

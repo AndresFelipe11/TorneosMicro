@@ -72,6 +72,8 @@ export default async function TournamentPage({
         description={tournament.description}
         registrationFee={tournament.registrationFee}
         prizes={tournament.prizes}
+        rules={tournament.rules}
+        rulesHref={`/torneos/${id}/reglamento`}
         editHref={canEditInfo ? `/admin/torneos/${id}/datos` : undefined}
       />
       {tournament.registrationOpen && tournament.status !== "FINISHED" ? (

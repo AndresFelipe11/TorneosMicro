@@ -13,7 +13,7 @@ export default async function TournamentDataPage({ params }: { params: Promise<{
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="display text-4xl">{tournament.name}</h1>
-      <p className="mb-4 text-muted">Edita el nombre, la descripción, la inscripción y la premiación.</p>
+      <p className="mb-4 text-muted">Edita el nombre, la descripción, la inscripción, la premiación y el reglamento.</p>
       <TournamentTabs id={id} admin />
       <TournamentInfoEditor
         tournamentId={id}
@@ -21,6 +21,7 @@ export default async function TournamentDataPage({ params }: { params: Promise<{
         description={tournament.description ?? ""}
         registrationFee={tournament.registrationFee ?? ""}
         prizes={tournament.prizes ?? ""}
+        rules={tournament.rules ?? ""}
       />
     </div>
   );

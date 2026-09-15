@@ -41,7 +41,7 @@ export async function updateTournamentNameAction(
   tournamentId: string,
   name: string,
   venue?: string | null,
-  info?: { description?: string | null; registrationFee?: string | null; prizes?: string | null },
+  info?: { description?: string | null; registrationFee?: string | null; prizes?: string | null; rules?: string | null },
 ) {
   const access = await requireTournamentMutation(tournamentId);
   if (!access.ok) return { error: access.error };
@@ -64,6 +64,7 @@ export async function updateTournamentNameAction(
               description: venueOrNull(info.description),
               registrationFee: venueOrNull(info.registrationFee),
               prizes: venueOrNull(info.prizes),
+              rules: venueOrNull(info.rules),
             }
           : {}),
       },
@@ -88,6 +89,7 @@ export async function updateTournamentInfoAction(
     description?: string | null;
     registrationFee?: string | null;
     prizes?: string | null;
+    rules?: string | null;
   },
 ) {
   const access = await requireTournamentMutation(tournamentId);
@@ -106,6 +108,7 @@ export async function updateTournamentInfoAction(
       description: venueOrNull(info.description),
       registrationFee: venueOrNull(info.registrationFee),
       prizes: venueOrNull(info.prizes),
+      rules: venueOrNull(info.rules),
     },
   });
   revalidateRoster(tournamentId);

@@ -10,12 +10,14 @@ export function TournamentInfoEditor({
   description: initialDescription,
   registrationFee: initialFee,
   prizes: initialPrizes,
+  rules: initialRules,
 }: {
   tournamentId: string;
   name: string;
   description: string;
   registrationFee: string;
   prizes: string;
+  rules: string;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -25,13 +27,15 @@ export function TournamentInfoEditor({
   const [description, setDescription] = useState(initialDescription);
   const [registrationFee, setRegistrationFee] = useState(initialFee);
   const [prizes, setPrizes] = useState(initialPrizes);
+  const [rules, setRules] = useState(initialRules);
 
   useEffect(() => {
     setName(initialName);
     setDescription(initialDescription);
     setRegistrationFee(initialFee);
     setPrizes(initialPrizes);
-  }, [initialName, initialDescription, initialFee, initialPrizes]);
+    setRules(initialRules);
+  }, [initialName, initialDescription, initialFee, initialPrizes, initialRules]);
 
   return (
     <form
@@ -47,6 +51,7 @@ export function TournamentInfoEditor({
             description,
             registrationFee,
             prizes,
+            rules,
           });
           if (result.error) setError(result.error);
           else {
@@ -57,7 +62,7 @@ export function TournamentInfoEditor({
       }}
     >
       <div>
-        <h2 className="display text-2xl">Nombre, descripción y premiación</h2>
+        <h2 className="display text-2xl">Nombre, descripción y reglamento</h2>
         <p className="text-sm text-muted">Se muestra en la ficha pública y al inscribirse.</p>
       </div>
       <label className="block space-y-1">
@@ -89,6 +94,15 @@ export function TournamentInfoEditor({
           placeholder="Ej. 1° $400.000 · 2° $200.000 · Goleador medalla."
           value={prizes}
           onChange={(e) => setPrizes(e.target.value)}
+        />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-sm font-semibold">Reglamento</span>
+        <textarea
+          className="field min-h-40"
+          placeholder="Duración de los partidos, tarjetas, W.O., inscripciones tardías y otras normas."
+          value={rules}
+          onChange={(e) => setRules(e.target.value)}
         />
       </label>
       {error ? <p className="font-semibold text-red-400">{error}</p> : null}
