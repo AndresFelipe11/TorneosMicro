@@ -4,24 +4,22 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useAskConfirm } from "@/components/ConfirmDialog";
 import { requestPostponeAction } from "@/lib/actions/postpone";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, POSTPONE_WINDOWS, postponeWindowLabel, type PostponeWindowId } from "@/lib/format";
 
 export function PostponeForm({
   matchId,
   homeTeam,
   awayTeam,
   currentScheduledAt,
-  initialLocal,
 }: {
   matchId: string;
   homeTeam: string;
   awayTeam: string;
   currentScheduledAt: Date | string;
-  initialLocal: string;
 }) {
   const router = useRouter();
   const ask = useAskConfirm();
-  const [proposedAt, setProposedAt] = useState(initialLocal);
+  const [when, setWhen] = useState<PostponeWindowId | "">("");
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -35,43 +33,59 @@ export function PostponeForm({
         event.preventDefault();
         setError(null);
         setMessage(null);
-        startTransition(async () => {
+        if (!when) {
+          setError("Elige cuándo pueden jugar.");
+          return;
+        }
+        const whenLabel = postponeWindowLabel(when);
+        void (async () => {
           const ok = await ask({
             title: "Pedir aplazamiento",
-            message: `¿Pedir aplazar ${homeTeam} vs ${awayTeam}?\nAhora: ${formatDateTime(currentScheduledAt)}\nEl administrador confirma si se mueve.`,
+            message: `¿Pedir aplazar ${homeTeam} vs ${awayTeam}?\nAhora: ${formatDateTime(currentScheduledAt)}\nPiden: ${whenLabel}.\nEl administrador confirma el día y la hora.`,
             confirmLabel: "Enviar petición",
           });
           if (!ok) return;
-          const result = await requestPostponeAction({
-            matchId,
-            reason,
-            proposedAt,
+          startTransition(async () => {
+            try {
+              const result = await requestPostponeAction({
+                matchId,
+                window: when,
+                reason,
+              });
+              if ("error" in result && result.error) {
+                setError(result.error);
+                return;
+              }
+              setMessage(result.message ?? "Petición enviada.");
+              setWhatsappUrl(result.whatsappUrl ?? null);
+              router.refresh();
+            } catch {
+              setError("No se pudo enviar. Intenta de nuevo.");
+            }
           });
-          if ("error" in result && result.error) {
-            setError(result.error);
-            return;
-          }
-          setMessage(result.message ?? "Petición enviada.");
-          setWhatsappUrl(result.whatsappUrl ?? null);
-          router.refresh();
-        });
+        })();
       }}
     >
       <p className="text-sm font-semibold">Pedir aplazar este partido</p>
+      <fieldset className="space-y-2">
+        <legend className="text-sm">¿Cuándo pueden jugar?</legend>
+        {POSTPONE_WINDOWS.map((item) => (
+          <label key={item.id} className="flex cursor-pointer items-center gap-3 rounded-xl border border-white/10 px-3 py-2">
+            <input
+              type="radio"
+              name={`postpone-${matchId}`}
+              checked={when === item.id}
+              onChange={() => setWhen(item.id)}
+            />
+            <span className="text-sm font-semibold">{item.label}</span>
+          </label>
+        ))}
+      </fieldset>
       <label className="block space-y-1">
-        <span className="text-sm">Nueva fecha propuesta (Bogotá)</span>
-        <input
-          className="field"
-          type="datetime-local"
-          value={proposedAt}
-          onChange={(event) => setProposedAt(event.target.value)}
-        />
-      </label>
-      <label className="block space-y-1">
-        <span className="text-sm">Motivo</span>
+        <span className="text-sm">Motivo (opcional)</span>
         <textarea
           className="field min-h-20"
-          placeholder="Ej. Nos falta gente ese día, ¿podemos jugar el sábado?"
+          placeholder="Ej. Nos falta gente esa hora."
           value={reason}
           onChange={(event) => setReason(event.target.value)}
         />

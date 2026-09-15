@@ -1,11 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { PostponeWindow } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireCaptainMutation, requireTournamentMutation } from "@/lib/authz";
-import { fromBogotaDateTimeLocal, toBogotaDateTimeLocal } from "@/lib/tournament/dates";
+import { suggestedPostponeLocal, toBogotaDateTimeLocal } from "@/lib/tournament/dates";
 import { isClosedMatch, venueOrNull } from "@/lib/tournament/match";
-import { formatDateTime } from "@/lib/format";
+import { formatDateTime, POSTPONE_WINDOWS, postponeWindowLabel, type PostponeWindowId } from "@/lib/format";
 import { resolveTournamentWhatsApp } from "@/lib/actions/registration";
 import { postponeWhatsAppMessage, whatsappChatUrl } from "@/lib/whatsapp";
 import { rescheduleMatchAction } from "@/lib/actions/tournaments";
@@ -21,14 +22,23 @@ function revalidatePostpone(tournamentId: string, matchId: string) {
   revalidatePath(`/admin/torneos/${tournamentId}/partidos/${matchId}`);
 }
 
+const WINDOWS = new Set<string>(POSTPONE_WINDOWS.map((item) => item.id));
+
+function asWindow(value: string | null | undefined): PostponeWindow | null {
+  if (!value || !WINDOWS.has(value)) return null;
+  return value as PostponeWindow;
+}
+
 export async function requestPostponeAction(input: {
   matchId: string;
+  window: PostponeWindowId;
   reason?: string;
-  proposedAt?: string;
 }) {
   const access = await requireCaptainMutation();
   if (!access.ok) return { error: access.error };
   const team = access.team;
+  const proposedWindow = asWindow(input.window);
+  if (!proposedWindow) return { error: "Elige cuándo pueden jugar." };
 
   const match = await prisma.match.findUnique({
     where: { id: input.matchId },
@@ -53,14 +63,6 @@ export async function requestPostponeAction(input: {
   });
   if (pending) return { error: "Ya hay una petición pendiente para este partido." };
 
-  let proposedAt: Date | null = null;
-  if (input.proposedAt?.trim()) {
-    proposedAt = fromBogotaDateTimeLocal(input.proposedAt);
-    if (!proposedAt || Number.isNaN(proposedAt.getTime())) {
-      return { error: "La fecha propuesta no es válida." };
-    }
-  }
-
   const reason = input.reason?.trim() || null;
   await prisma.matchPostponeRequest.create({
     data: {
@@ -68,7 +70,8 @@ export async function requestPostponeAction(input: {
       teamId: team.id,
       userId: access.user.id,
       reason,
-      proposedAt,
+      proposedWindow,
+      proposedAt: null,
     },
   });
 
@@ -84,7 +87,7 @@ export async function requestPostponeAction(input: {
           homeTeam: match.homeTeam.name,
           awayTeam: match.awayTeam.name,
           currentWhen: formatDateTime(match.scheduledAt),
-          proposedWhen: proposedAt ? formatDateTime(proposedAt) : null,
+          proposedWhen: postponeWindowLabel(proposedWindow),
           reason,
         }),
       )
@@ -121,13 +124,12 @@ export async function resolvePostponeAction(input: {
     return { ok: true, message: "Petición rechazada." };
   }
 
-  if (!input.scheduledAt?.trim() && !request.proposedAt) {
-    return { error: "Elige la nueva fecha para aceptar el aplazamiento." };
-  }
+  const whenLocal =
+    input.scheduledAt?.trim() ||
+    (request.proposedAt ? toBogotaDateTimeLocal(request.proposedAt) : null) ||
+    suggestedPostponeLocal(request.match.scheduledAt, request.proposedWindow);
 
-  const whenLocal = input.scheduledAt?.trim()
-    ? input.scheduledAt
-    : toBogotaDateTimeLocal(request.proposedAt!);
+  if (!whenLocal) return { error: "Elige la nueva fecha para aceptar el aplazamiento." };
 
   const result = await rescheduleMatchAction({
     matchId: request.matchId,

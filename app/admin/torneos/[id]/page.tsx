@@ -122,6 +122,7 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
           requests={postponeRequests.map((item) => ({
             id: item.id,
             reason: item.reason,
+            proposedWindow: item.proposedWindow,
             proposedAt: item.proposedAt,
             createdAt: item.createdAt,
             teamName: item.team.name,

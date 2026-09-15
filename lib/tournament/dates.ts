@@ -77,6 +77,19 @@ export function nextDateString(isoDate: string): string {
   return `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}`;
 }
 
+export function suggestedPostponeLocal(
+  matchAt: Date,
+  window?: "SAME_DAY" | "TOMORROW" | "THIS_WEEK" | "NEXT_WEEK" | null,
+): string {
+  const current = toBogotaDateTimeLocal(matchAt);
+  const [date, time] = current.split("T");
+  if (window === "TOMORROW") return `${nextDateString(date)}T${time}`;
+  if (window === "NEXT_WEEK") {
+    return `${toBogotaDateString(startOfNextWeekBogota(matchAt))}T${time}`;
+  }
+  return current;
+}
+
 export function buildSlots(config: {
   startDate: string;
   endDate: string;

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { flushSync } from "react-dom";
 
 export type ConfirmOptions = {
   title?: string;
@@ -23,7 +24,9 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
 
   const ask = useCallback((options: ConfirmOptions) => {
     return new Promise<boolean>((resolve) => {
-      setPending({ ...options, resolve });
+      flushSync(() => {
+        setPending({ ...options, resolve });
+      });
     });
   }, []);
 

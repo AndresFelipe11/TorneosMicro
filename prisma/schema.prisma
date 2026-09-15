@@ -65,6 +65,13 @@ enum PostponeRequestStatus {
   REJECTED
 }
 
+enum PostponeWindow {
+  SAME_DAY
+  TOMORROW
+  THIS_WEEK
+  NEXT_WEEK
+}
+
 enum MatchResultLogAction {
   SAVED
   RESET
@@ -238,9 +245,10 @@ model MatchPostponeRequest {
   team       Team                  @relation(fields: [teamId], references: [id], onDelete: Cascade)
   userId     String
   user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  reason     String?
-  proposedAt DateTime?
-  status     PostponeRequestStatus @default(PENDING)
+  reason         String?
+  proposedWindow PostponeWindow?
+  proposedAt     DateTime?
+  status         PostponeRequestStatus @default(PENDING)
   createdAt  DateTime              @default(now())
   resolvedAt DateTime?
 

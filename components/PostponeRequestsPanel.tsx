@@ -4,13 +4,14 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { useAskConfirm } from "@/components/ConfirmDialog";
 import { resolvePostponeAction } from "@/lib/actions/postpone";
-import { formatDateTime } from "@/lib/format";
-import { toBogotaDateTimeLocal } from "@/lib/tournament/dates";
+import { formatDateTime, postponeWindowLabel } from "@/lib/format";
+import { suggestedPostponeLocal, toBogotaDateTimeLocal } from "@/lib/tournament/dates";
 
 export type PostponeRow = {
   id: string;
   reason: string | null;
-  proposedAt: Date | string | null;
+  proposedWindow: "SAME_DAY" | "TOMORROW" | "THIS_WEEK" | "NEXT_WEEK" | null;
+  proposedAt?: Date | string | null;
   createdAt: Date | string;
   teamName: string;
   homeTeam: string;
@@ -32,7 +33,7 @@ export function PostponeRequestsPanel({ requests }: { requests: PostponeRow[] })
         item.id,
         item.proposedAt
           ? toBogotaDateTimeLocal(new Date(item.proposedAt))
-          : toBogotaDateTimeLocal(new Date(item.currentScheduledAt)),
+          : suggestedPostponeLocal(new Date(item.currentScheduledAt), item.proposedWindow),
       ]),
     ),
   );
@@ -42,8 +43,8 @@ export function PostponeRequestsPanel({ requests }: { requests: PostponeRow[] })
   function run(requestId: string, accept: boolean) {
     setError(null);
     setMessage(null);
-    startTransition(async () => {
-      const row = requests.find((item) => item.id === requestId);
+    const row = requests.find((item) => item.id === requestId);
+    void (async () => {
       const ok = await ask({
         title: accept ? "Aceptar aplazamiento" : "Rechazar petición",
         message: accept
@@ -53,26 +54,34 @@ export function PostponeRequestsPanel({ requests }: { requests: PostponeRow[] })
         danger: !accept,
       });
       if (!ok) return;
-      const result = await resolvePostponeAction({
-        requestId,
-        accept,
-        scheduledAt: accept ? dates[requestId] : undefined,
-        venue: row?.venue,
+      startTransition(async () => {
+        try {
+          const result = await resolvePostponeAction({
+            requestId,
+            accept,
+            scheduledAt: accept ? dates[requestId] : undefined,
+            venue: row?.venue,
+          });
+          if ("error" in result && result.error) {
+            setError(result.error);
+            return;
+          }
+          setMessage(result.message ?? "Listo.");
+          router.refresh();
+        } catch {
+          setError("No se pudo guardar. Intenta de nuevo.");
+        }
       });
-      if ("error" in result && result.error) {
-        setError(result.error);
-        return;
-      }
-      setMessage(result.message ?? "Listo.");
-      router.refresh();
-    });
+    })();
   }
 
   return (
     <section className="card mb-6 space-y-4 p-5">
       <div>
         <h2 className="display text-2xl">Peticiones de aplazamiento</h2>
-        <p className="text-sm text-muted">Los capitanes piden mover un partido. Tú confirmas la nueva fecha.</p>
+        <p className="text-sm text-muted">
+          El capitán elige una ventana. Tú pones el día y la hora exactos.
+        </p>
       </div>
       {requests.map((item) => (
         <div key={item.id} className="space-y-2 rounded-2xl border border-white/10 p-4">
@@ -80,6 +89,9 @@ export function PostponeRequestsPanel({ requests }: { requests: PostponeRow[] })
             {item.teamName} · {item.homeTeam} vs {item.awayTeam}
           </p>
           <p className="text-sm text-muted">Ahora: {formatDateTime(item.currentScheduledAt)}</p>
+          <p className="text-sm font-semibold text-lime">
+            Piden: {postponeWindowLabel(item.proposedWindow) ?? (item.proposedAt ? formatDateTime(item.proposedAt) : "Sin preferencia")}
+          </p>
           {item.reason ? <p className="text-sm">{item.reason}</p> : null}
           <label className="block space-y-1">
             <span className="text-sm font-semibold">Nueva fecha</span>

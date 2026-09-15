@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { requireCaptain } from "@/lib/authz";
 import { prisma } from "@/lib/prisma";
-import { formatDateTime, phaseLabel, teamName } from "@/lib/format";
-import { toBogotaDateTimeLocal } from "@/lib/tournament/dates";
+import { formatDateTime, phaseLabel, postponeWindowLabel, teamName } from "@/lib/format";
 import { displayVenue } from "@/lib/tournament/match";
 import { StatusBadge } from "@/components/MatchList";
 import { PostponeForm } from "./PostponeForm";
@@ -69,9 +68,13 @@ export default async function CaptainHomePage() {
                 </Link>
                 {pending ? (
                   <p className="text-sm text-lime">
-                    Petición enviada
-                    {pending.proposedAt ? ` · propones ${formatDateTime(pending.proposedAt)}` : ""}. Esperando al
-                    administrador.
+                    {`Petición enviada${
+                      postponeWindowLabel(pending.proposedWindow)
+                        ? ` · piden ${postponeWindowLabel(pending.proposedWindow)?.toLowerCase()}`
+                        : pending.proposedAt
+                          ? ` · propones ${formatDateTime(pending.proposedAt)}`
+                          : ""
+                    }. Esperando al administrador.`}
                   </p>
                 ) : (
                   <PostponeForm
@@ -79,7 +82,6 @@ export default async function CaptainHomePage() {
                     homeTeam={teamName(match.homeTeam.name)}
                     awayTeam={teamName(match.awayTeam.name)}
                     currentScheduledAt={match.scheduledAt}
-                    initialLocal={toBogotaDateTimeLocal(match.scheduledAt)}
                   />
                 )}
               </article>

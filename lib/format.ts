@@ -159,3 +159,16 @@ export function teamName(value: string | null | undefined) {
 export function teamNameInput(value: string) {
   return value.toLocaleUpperCase("es-CO");
 }
+
+export const POSTPONE_WINDOWS = [
+  { id: "SAME_DAY", label: "Mismo día, otra hora" },
+  { id: "TOMORROW", label: "Mañana" },
+  { id: "THIS_WEEK", label: "Esta semana" },
+  { id: "NEXT_WEEK", label: "La otra semana" },
+] as const;
+
+export type PostponeWindowId = (typeof POSTPONE_WINDOWS)[number]["id"];
+
+export function postponeWindowLabel(value: string | null | undefined) {
+  return POSTPONE_WINDOWS.find((item) => item.id === value)?.label ?? null;
+}
