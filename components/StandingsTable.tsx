@@ -1,13 +1,16 @@
+import Link from "next/link";
 import type { StandingRow } from "@/lib/tournament/types";
 
 export function StandingsTable({
   title,
   rows,
   highlightTeamIds = [],
+  tournamentId,
 }: {
   title?: string;
   rows: StandingRow[];
   highlightTeamIds?: string[];
+  tournamentId?: string;
 }) {
   return (
     <section className="card overflow-hidden">
@@ -42,8 +45,13 @@ export function StandingsTable({
               >
                 <td className="font-bold">{index + 1}</td>
                 <td className="font-semibold">
-                  {row.teamName}
-                  {highlighted ? <span className="ml-2 text-xs font-bold uppercase tracking-wide text-lime">Tu equipo</span> : null}
+                  {tournamentId ? (
+                    <Link className="text-cream no-underline hover:text-lime" href={`/torneos/${tournamentId}/equipos/${row.teamId}`}>
+                      {row.teamName}
+                    </Link>
+                  ) : (
+                    row.teamName
+                  )}
                 </td>
                 <td>{row.played}</td>
                 <td>{row.won}</td>

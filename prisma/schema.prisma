@@ -139,6 +139,7 @@ model TeamRegistration {
   tournament   Tournament         @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
   name         String
   players      String[]
+  whatsapp     String?
   groupId      String?
   status       RegistrationStatus @default(PENDING)
   createdAt    DateTime           @default(now())

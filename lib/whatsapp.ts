@@ -11,7 +11,13 @@ export function whatsappChatUrl(phone: string, text: string) {
   return `https://wa.me/${phone}?text=${encodeURIComponent(text)}`;
 }
 
-export function registrationWhatsAppMessage(tournamentName: string, teamName: string, players: string[]) {
+export function registrationWhatsAppMessage(
+  tournamentName: string,
+  teamName: string,
+  players: string[],
+  captainWhatsApp?: string | null,
+) {
   const roster = players.length > 0 ? ` Jugadores: ${players.join(", ")}.` : "";
-  return `Hola, quiero jugar el torneo ${tournamentName} con mi equipo ${teamName}.${roster}`;
+  const contact = captainWhatsApp ? ` WhatsApp del capitán: ${captainWhatsApp}.` : "";
+  return `Hola, quiero jugar el torneo ${tournamentName} con mi equipo ${teamName}.${roster}${contact}`;
 }

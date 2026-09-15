@@ -1,13 +1,15 @@
 "use client";
 
-import { FormEvent } from "react";
+import { FormEvent, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 function tournamentSearchTarget(pathname: string) {
   const publicMatch = pathname.match(/^\/torneos\/([^/]+)(.*)$/);
   if (publicMatch) {
     const [, id, rest] = publicMatch;
-    const stay = rest === "" || /^\/(calendario|posiciones|goleadores|valla|partidos\/[^/]+)$/.test(rest);
+    const stay =
+      rest === "" ||
+      /^\/(calendario|posiciones|goleadores|valla|equipos(\/[^/]+)?|partidos\/[^/]+)$/.test(rest);
     return { href: stay ? pathname : `/torneos/${id}` };
   }
 
@@ -23,31 +25,56 @@ export function SearchBar({ compact = false }: { compact?: boolean }) {
   const params = useSearchParams();
   const query = params.get("q") ?? "";
   const inTournament = Boolean(tournamentSearchTarget(pathname));
+  const [value, setValue] = useState(query);
+  const debounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const nextQuery = new FormData(event.currentTarget).get("q")?.toString().trim() ?? "";
+  useEffect(() => {
+    setValue(query);
+  }, [query, pathname]);
+
+  function go(nextQuery: string, replace = false) {
+    const trimmed = nextQuery.trim();
     const target = tournamentSearchTarget(pathname);
+    const navigate = replace ? router.replace.bind(router) : router.push.bind(router);
 
     if (target) {
-      const href = nextQuery.length >= 2 ? `${target.href}?q=${encodeURIComponent(nextQuery)}` : target.href;
-      router.push(href, { scroll: false });
+      const href = trimmed.length >= 2 ? `${target.href}?q=${encodeURIComponent(trimmed)}` : target.href;
+      navigate(href, { scroll: false });
       return;
     }
 
-    if (nextQuery.length < 2) return;
-    router.push(`/buscar?q=${encodeURIComponent(nextQuery)}`);
+    if (trimmed.length < 2) return;
+    navigate(`/buscar?q=${encodeURIComponent(trimmed)}`);
   }
+
+  function onChange(next: string) {
+    setValue(next);
+    if (!inTournament) return;
+    if (debounce.current) clearTimeout(debounce.current);
+    debounce.current = setTimeout(() => go(next, true), 250);
+  }
+
+  function onSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (debounce.current) clearTimeout(debounce.current);
+    go(value);
+  }
+
+  useEffect(() => {
+    return () => {
+      if (debounce.current) clearTimeout(debounce.current);
+    };
+  }, []);
 
   return (
     <form onSubmit={onSubmit} className={compact ? "flex min-w-0 flex-1 gap-2" : "flex w-full gap-2"}>
       <input
         className="field min-w-0 flex-1"
-        defaultValue={query}
-        key={`${pathname}-${query}`}
+        value={value}
         name="q"
         placeholder={inTournament ? "Filtra por equipo o jugador" : "Busca equipo o jugador"}
         type="search"
+        onChange={(event) => onChange(event.target.value)}
       />
       <button className="btn btn-lime shrink-0 px-4" type="submit">
         Buscar

@@ -1,10 +1,8 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
-import { getTeamRegistrations, getTournament, getTournamentResultLogs } from "@/lib/queries";
+import { getTournament, getTournamentResultLogs } from "@/lib/queries";
 import { canManageTournament, isGlobalAdmin, isScorekeeper, requireTournamentPage } from "@/lib/authz";
-import { resolveTournamentWhatsApp } from "@/lib/actions/registration";
-import { RegistrationPanel } from "@/components/RegistrationPanel";
 import { ResultAuditLog } from "@/components/ResultAuditLog";
 import { formatDate, formatLabel, nextPhaseLabel } from "@/lib/format";
 import { TournamentTabs } from "@/components/TournamentTabs";
@@ -14,7 +12,6 @@ import { TournamentAdminsPanel } from "./TournamentAdminsPanel";
 import { TournamentScorekeepersPanel } from "./TournamentScorekeepersPanel";
 import { ExportExcelButton } from "@/components/ExportExcelButton";
 import { TournamentInfo } from "@/components/TournamentInfo";
-import { TournamentInfoEditor } from "@/components/TournamentInfoEditor";
 
 export default async function AdminTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -22,10 +19,8 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
   const tournament = await getTournament(id);
   if (!tournament) notFound();
   const manage = canManageTournament(admin, id);
-  const [registrations, contactWhatsApp, resultLogs, adminCandidates, assignedAdminIds, scorekeeperCandidates, assignedScorekeeperIds] =
+  const [resultLogs, adminCandidates, assignedAdminIds, scorekeeperCandidates, assignedScorekeeperIds] =
     await Promise.all([
-      manage ? getTeamRegistrations(id) : Promise.resolve([]),
-      manage ? resolveTournamentWhatsApp(id) : Promise.resolve(null),
       getTournamentResultLogs(id),
       isGlobalAdmin(admin)
         ? prisma.user.findMany({
@@ -69,15 +64,7 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
         <StatusBadge status={tournament.status} />
       </div>
       <TournamentTabs id={id} admin scorekeeper={isScorekeeper(admin)} />
-      {manage ? (
-        <TournamentInfoEditor
-          tournamentId={id}
-          name={tournament.name}
-          description={tournament.description ?? ""}
-          registrationFee={tournament.registrationFee ?? ""}
-          prizes={tournament.prizes ?? ""}
-        />
-      ) : (
+      {manage ? null : (
         <TournamentInfo
           description={tournament.description}
           registrationFee={tournament.registrationFee}
@@ -85,25 +72,12 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
         />
       )}
       {manage ? (
-        <div className="mb-6">
-          <RegistrationPanel
-            tournamentId={id}
-            registrationOpen={tournament.registrationOpen}
-            finished={tournament.status === "FINISHED"}
-            whatsapp={admin.whatsapp ?? ""}
-            hasContactWhatsApp={Boolean(contactWhatsApp)}
-            groups={tournament.format === "GROUPS" ? tournament.groups : []}
-            registrations={registrations}
-          />
-        </div>
-      ) : null}
-      {manage ? (
         <div className="mb-6 flex flex-wrap gap-3">
           <Link href={`/admin/torneos/${id}/calendario`} className="btn btn-lime">
             Editar calendario
           </Link>
-          <Link href="#info" className="btn btn-dark">
-            Editar nombre y descripción
+          <Link href={`/admin/torneos/${id}/datos`} className="btn btn-dark">
+            Editar datos
           </Link>
           <Link href={`/admin/torneos/${id}/editar`} className="btn btn-dark">
             Editar equipos

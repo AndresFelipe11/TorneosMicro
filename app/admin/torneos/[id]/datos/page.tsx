@@ -2,9 +2,9 @@ import { notFound } from "next/navigation";
 import { getTournament } from "@/lib/queries";
 import { requireTournamentManagePage } from "@/lib/authz";
 import { TournamentTabs } from "@/components/TournamentTabs";
-import { RosterEditor } from "./RosterEditor";
+import { TournamentInfoEditor } from "@/components/TournamentInfoEditor";
 
-export default async function EditTournamentPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function TournamentDataPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   await requireTournamentManagePage(id);
   const tournament = await getTournament(id);
@@ -13,17 +13,11 @@ export default async function EditTournamentPage({ params }: { params: Promise<{
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="display text-4xl">{tournament.name}</h1>
-      <p className="mb-4 text-muted">
-        Agrega o quita equipos y jugadores. Si entra un equipo nuevo, se le arman los partidos pendientes.
-      </p>
+      <p className="mb-4 text-muted">Edita el nombre, la descripción, la inscripción y la premiación.</p>
       <TournamentTabs id={id} admin />
-      <RosterEditor
-        tournamentId={tournament.id}
-        tournamentName={tournament.name}
-        format={tournament.format}
-        groups={tournament.groups}
-        teams={tournament.teams}
-        venue={tournament.venue ?? ""}
+      <TournamentInfoEditor
+        tournamentId={id}
+        name={tournament.name}
         description={tournament.description ?? ""}
         registrationFee={tournament.registrationFee ?? ""}
         prizes={tournament.prizes ?? ""}

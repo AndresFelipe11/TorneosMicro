@@ -1,3 +1,4 @@
+import { weekdayBogota } from "@/lib/tournament/dates";
 import type { KnockoutRound, MatchPhase, NextPhase, TournamentFormat } from "@/lib/tournament/types";
 
 type TournamentStatus = "DRAFT" | "SCHEDULED" | "IN_PROGRESS" | "FINISHED";
@@ -68,36 +69,55 @@ export function weekdayLabel(day: number) {
   return dayFullLabels[day] ?? "";
 }
 
-export function formatDateTime(value: Date | string) {
+const MONTHS_LONG = [
+  "enero",
+  "febrero",
+  "marzo",
+  "abril",
+  "mayo",
+  "junio",
+  "julio",
+  "agosto",
+  "septiembre",
+  "octubre",
+  "noviembre",
+  "diciembre",
+];
+const MONTHS_SHORT = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sept", "oct", "nov", "dic"];
+
+function bogotaClock(value: Date | string) {
   const date = typeof value === "string" ? new Date(value) : value;
-  return new Intl.DateTimeFormat("es-CO", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "America/Bogota",
-  }).format(date);
+  const shifted = new Date(date.getTime() - 5 * 60 * 60 * 1000);
+  return {
+    isoDate: `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}-${String(shifted.getUTCDate()).padStart(2, "0")}`,
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth() + 1,
+    day: shifted.getUTCDate(),
+    hours: shifted.getUTCHours(),
+    minutes: shifted.getUTCMinutes(),
+  };
+}
+
+function clockLabel(hours: number, minutes: number) {
+  const hour12 = hours % 12 || 12;
+  const suffix = hours < 12 ? "a. m." : "p. m.";
+  return `${String(hour12).padStart(2, "0")}:${String(minutes).padStart(2, "0")} ${suffix}`;
+}
+
+export function formatDateTime(value: Date | string) {
+  const { isoDate, year, month, day, hours, minutes } = bogotaClock(value);
+  const weekday = dayLabels[weekdayBogota(isoDate)]?.toLowerCase() ?? "";
+  return `${weekday}, ${day} ${MONTHS_SHORT[month - 1]} ${year}, ${clockLabel(hours, minutes)}`;
 }
 
 export function formatDate(value: Date | string) {
-  const date = typeof value === "string" ? new Date(value) : value;
-  return new Intl.DateTimeFormat("es-CO", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(date);
+  const { year, month, day } = bogotaClock(value);
+  return `${day} de ${MONTHS_LONG[month - 1]} de ${year}`;
 }
 
 export function formatTime(value: Date | string) {
-  const date = typeof value === "string" ? new Date(value) : value;
-  return new Intl.DateTimeFormat("es-CO", {
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "America/Bogota",
-  }).format(date);
+  const { hours, minutes } = bogotaClock(value);
+  return clockLabel(hours, minutes);
 }
 
 export function scoreLabel(

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 
 export function TournamentTabs({
@@ -17,6 +18,8 @@ export function TournamentTabs({
   query?: string;
 }) {
   const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const base = admin ? `/admin/torneos/${id}` : `/torneos/${id}`;
   const suffix = query && query.trim().length >= 2 ? `?q=${encodeURIComponent(query.trim())}` : "";
   const tabs = admin
@@ -26,7 +29,9 @@ export function TournamentTabs({
           { href: `/torneos/${id}`, label: "Vista pública" },
         ]
       : [
-          { href: base, label: "Gestionar" },
+          { href: `${base}/datos`, label: "Datos" },
+          { href: `${base}/inscripciones`, label: "Inscripciones" },
+          { href: base, label: "Partidos" },
           { href: `${base}/calendario`, label: "Calendario" },
           { href: `${base}/editar`, label: "Equipos" },
           { href: `/torneos/${id}`, label: "Vista pública" },
@@ -37,13 +42,17 @@ export function TournamentTabs({
         { href: `${base}/posiciones`, label: "Posiciones" },
         { href: `${base}/goleadores`, label: "Goleadores" },
         { href: `${base}/valla`, label: "Valla" },
+        { href: `${base}/equipos`, label: "Equipos" },
         ...(registrationOpen ? [{ href: `${base}/inscribirme`, label: "Inscribirme" }] : []),
       ];
 
   return (
     <div className="mb-6 flex flex-wrap gap-2">
       {tabs.map((tab) => {
-        const active = pathname === tab.href;
+        const active =
+          mounted &&
+          (pathname === tab.href ||
+            (tab.href.endsWith("/equipos") && pathname.startsWith(`${tab.href}/`)));
         return (
           <Link
             key={tab.href}

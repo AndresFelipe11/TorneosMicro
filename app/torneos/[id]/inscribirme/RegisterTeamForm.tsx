@@ -16,6 +16,7 @@ export function RegisterTeamForm({
   const ask = useAskConfirm();
   const [name, setName] = useState("");
   const [players, setPlayers] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
   const [groupId, setGroupId] = useState(groups[0]?.id ?? "");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -35,6 +36,7 @@ export function RegisterTeamForm({
             tournamentId,
             name,
             players: [players],
+            whatsapp,
             groupId: groups.length > 0 ? groupId : null,
           });
           if (result.error) {
@@ -45,6 +47,7 @@ export function RegisterTeamForm({
           setWhatsappUrl(result.whatsappUrl ?? null);
           setName("");
           setPlayers("");
+          setWhatsapp("");
           if (!result.whatsappUrl) return;
           const go = await ask({
             title: "Inscripción enviada",
@@ -59,13 +62,24 @@ export function RegisterTeamForm({
       <div>
         <h2 className="display text-2xl">Inscribir equipo</h2>
         <p className="text-sm text-muted">
-          Llena el nombre de tu equipo y los jugadores. Al enviar te avisamos y, si quieres, te
-          llevamos a WhatsApp para confirmar con el administrador de {tournamentName}.
+          Llena el nombre de tu equipo, el WhatsApp del capitán y los jugadores. Al enviar te
+          avisamos y, si quieres, te llevamos a WhatsApp para confirmar con el administrador de{" "}
+          {tournamentName}.
         </p>
       </div>
       <label className="block space-y-1">
         <span className="text-sm font-semibold">Nombre del equipo</span>
         <input className="field" value={name} onChange={(event) => setName(event.target.value)} required />
+      </label>
+      <label className="block space-y-1">
+        <span className="text-sm font-semibold">WhatsApp del capitán</span>
+        <input
+          className="field"
+          placeholder="300 123 4567"
+          value={whatsapp}
+          onChange={(event) => setWhatsapp(event.target.value)}
+          required
+        />
       </label>
       {groups.length > 0 ? (
         <label className="block space-y-1">

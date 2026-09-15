@@ -26,7 +26,7 @@ export default async function DefensePage({
       </p>
       <TournamentTabs id={id} registrationOpen={tournament.registrationOpen} query={filter.query} />
       <TournamentFilterNote query={filter.query} labels={filter.labels} found={filter.found} path={`/torneos/${id}/valla`} />
-      <DefenseTable rows={defenseFor(tournament)} highlightTeamIds={filter.teamIds} />
+      <DefenseTable rows={defenseFor(tournament)} highlightTeamIds={filter.teamIds} tournamentId={id} />
     </div>
   );
 }

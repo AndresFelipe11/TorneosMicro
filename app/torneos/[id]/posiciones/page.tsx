@@ -27,7 +27,13 @@ export default async function StandingsPage({
       <TournamentFilterNote query={filter.query} labels={filter.labels} found={filter.found} path={`/torneos/${id}/posiciones`} />
       <div className="space-y-5">
         {[...standings.entries()].map(([title, rows]) => (
-          <StandingsTable key={title} title={title} rows={rows} highlightTeamIds={filter.teamIds} />
+          <StandingsTable
+            key={title}
+            title={title}
+            rows={rows}
+            highlightTeamIds={filter.teamIds}
+            tournamentId={id}
+          />
         ))}
       </div>
     </div>

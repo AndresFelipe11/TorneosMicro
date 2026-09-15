@@ -11,6 +11,7 @@ function revalidateRegistration(id: string) {
   revalidatePath(`/torneos/${id}`);
   revalidatePath(`/torneos/${id}/inscribirme`);
   revalidatePath(`/admin/torneos/${id}`);
+  revalidatePath(`/admin/torneos/${id}/inscripciones`);
   revalidatePath(`/admin/torneos/${id}/editar`);
 }
 
@@ -45,6 +46,7 @@ export async function requestTeamRegistrationAction(input: {
   tournamentId: string;
   name: string;
   players: string[];
+  whatsapp: string;
   groupId?: string | null;
 }) {
   const tournament = await prisma.tournament.findUnique({
@@ -66,6 +68,8 @@ export async function requestTeamRegistrationAction(input: {
   if (!name) return { error: "El equipo necesita un nombre." };
   const players = parsePlayers(input.players);
   if (players.length === 0) return { error: "Agrega al menos un jugador." };
+  const captainWhatsApp = normalizeWhatsApp(input.whatsapp);
+  if (!captainWhatsApp) return { error: "El WhatsApp del capitán no es válido." };
 
   const taken = [...tournament.teams, ...tournament.registrations].some(
     (item) => item.name.toLowerCase() === name.toLowerCase(),
@@ -87,6 +91,7 @@ export async function requestTeamRegistrationAction(input: {
       tournamentId: tournament.id,
       name,
       players,
+      whatsapp: captainWhatsApp,
       groupId,
     },
   });
@@ -95,7 +100,10 @@ export async function requestTeamRegistrationAction(input: {
   return {
     ok: true,
     message: "Inscripción enviada. Solo falta la confirmación por WhatsApp.",
-    whatsappUrl: whatsappChatUrl(phone, registrationWhatsAppMessage(tournament.name, name, players)),
+    whatsappUrl: whatsappChatUrl(
+      phone,
+      registrationWhatsAppMessage(tournament.name, name, players, captainWhatsApp),
+    ),
   };
 }
 

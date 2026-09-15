@@ -1,11 +1,14 @@
+import Link from "next/link";
 import type { DefenseRow } from "@/lib/tournament/types";
 
 export function DefenseTable({
   rows,
   highlightTeamIds = [],
+  tournamentId,
 }: {
   rows: DefenseRow[];
   highlightTeamIds?: string[];
+  tournamentId?: string;
 }) {
   if (rows.length === 0) {
     return <p className="text-muted">Todavía no hay equipos para calcular la valla.</p>;
@@ -40,8 +43,13 @@ export function DefenseTable({
               >
                 <td className="font-bold">{index + 1}</td>
                 <td className="font-semibold">
-                  {row.teamName}
-                  {highlighted ? <span className="ml-2 text-xs font-bold uppercase tracking-wide text-lime">Tu equipo</span> : null}
+                  {tournamentId ? (
+                    <Link className="text-cream no-underline hover:text-lime" href={`/torneos/${tournamentId}/equipos/${row.teamId}`}>
+                      {row.teamName}
+                    </Link>
+                  ) : (
+                    row.teamName
+                  )}
                 </td>
                 <td>{row.played}</td>
                 <td className="display text-2xl text-lime">{row.ga}</td>

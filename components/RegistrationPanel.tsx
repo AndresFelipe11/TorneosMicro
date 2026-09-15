@@ -14,6 +14,7 @@ type Registration = {
   id: string;
   name: string;
   players: string[];
+  whatsapp: string | null;
   groupId: string | null;
   status: "PENDING" | "ACCEPTED" | "REJECTED";
 };
@@ -68,8 +69,8 @@ export function RegistrationPanel({
       <div>
         <h2 className="display text-2xl">Inscripciones</h2>
         <p className="text-sm text-muted">
-          Si el torneo está disponible, cualquiera puede pedir un equipo sin iniciar sesión. Luego
-          confirma por WhatsApp y tú aceptas o rechazas.
+          Si el torneo está disponible, cualquiera puede pedir un equipo. Luego confirma por WhatsApp
+          y tú aceptas o rechazas.
         </p>
       </div>
 
@@ -119,6 +120,16 @@ export function RegistrationPanel({
               <div key={row.id} className="rounded-2xl border border-white/10 p-4">
                 <p className="font-bold">{row.name}</p>
                 <p className="text-sm text-muted">{row.players.join(", ")}</p>
+                {row.whatsapp ? (
+                  <p className="mt-1 text-sm">
+                    Capitán:{" "}
+                    <a className="font-bold text-lime" href={`https://wa.me/${row.whatsapp}`}>
+                      {row.whatsapp}
+                    </a>
+                  </p>
+                ) : (
+                  <p className="mt-1 text-sm text-muted">Sin WhatsApp del capitán.</p>
+                )}
                 {groups.length > 0 ? (
                   <label className="mt-3 block space-y-1">
                     <span className="text-sm font-semibold">Grupo</span>

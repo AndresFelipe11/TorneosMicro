@@ -72,7 +72,7 @@ export default async function TournamentPage({
         description={tournament.description}
         registrationFee={tournament.registrationFee}
         prizes={tournament.prizes}
-        editHref={canEditInfo ? `/admin/torneos/${id}#info` : undefined}
+        editHref={canEditInfo ? `/admin/torneos/${id}/datos` : undefined}
       />
       {tournament.registrationOpen && tournament.status !== "FINISHED" ? (
         <div className="card mb-6 flex flex-wrap items-center justify-between gap-3 p-5">
@@ -106,7 +106,13 @@ export default async function TournamentPage({
             <h2 className="display mb-3 text-2xl">Posiciones</h2>
             <div className="space-y-4">
               {[...standings.entries()].map(([title, rows]) => (
-                <StandingsTable key={title} title={title} rows={rows} highlightTeamIds={filter.teamIds} />
+                <StandingsTable
+                  key={title}
+                  title={title}
+                  rows={rows}
+                  highlightTeamIds={filter.teamIds}
+                  tournamentId={id}
+                />
               ))}
             </div>
           </div>
@@ -120,7 +126,7 @@ export default async function TournamentPage({
           </div>
           <div>
             <h2 className="display mb-3 text-2xl">Valla menos vencida</h2>
-            <DefenseTable rows={defense} highlightTeamIds={filter.teamIds} />
+            <DefenseTable rows={defense} highlightTeamIds={filter.teamIds} tournamentId={id} />
           </div>
         </div>
       </div>

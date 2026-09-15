@@ -6,9 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { requireTournamentMutation } from "@/lib/authz";
 import { getTournament } from "@/lib/queries";
 import { scheduleMatches } from "@/lib/tournament/schedule";
-import { startOfNextWeekBogota, toBogotaDateString } from "@/lib/tournament/dates";
+import { scheduleFromDate, startOfNextWeekBogota, toBogotaDateString } from "@/lib/tournament/dates";
 import type { MatchPhase as Phase, UnscheduledMatch } from "@/lib/tournament/types";
-import { venueOrNull } from "@/lib/tournament/match";
+import { hasTournamentStarted, venueOrNull } from "@/lib/tournament/match";
 
 function revalidateRoster(id: string) {
   revalidatePath("/");
@@ -19,7 +19,10 @@ function revalidateRoster(id: string) {
   revalidatePath(`/torneos/${id}/goleadores`);
   revalidatePath(`/torneos/${id}/valla`);
   revalidatePath(`/torneos/${id}/inscribirme`);
+  revalidatePath(`/torneos/${id}/equipos`);
   revalidatePath(`/admin/torneos/${id}`);
+  revalidatePath(`/admin/torneos/${id}/datos`);
+  revalidatePath(`/admin/torneos/${id}/inscripciones`);
   revalidatePath(`/admin/torneos/${id}/editar`);
   revalidatePath(`/admin/torneos/${id}/calendario`);
 }
@@ -145,6 +148,7 @@ export async function addTeamToTournament(input: {
     groupName,
   }));
 
+  const started = hasTournamentStarted(tournament);
   const occupied = tournament.matches.map((match) => ({
     homeTeamName: match.homeTeam.name,
     awayTeamName: match.awayTeam.name,
@@ -163,7 +167,7 @@ export async function addTeamToTournament(input: {
             maxMatchesPerDay: tournament.maxMatchesPerDay,
             matchDurationMinutes: tournament.matchDurationMinutes,
             startTime: tournament.startTime,
-            fromDate: startOfNextWeekBogota(),
+            fromDate: started ? startOfNextWeekBogota() : scheduleFromDate(dateField(tournament.startDate)),
           },
           occupied,
         );
@@ -209,7 +213,9 @@ export async function addTeamToTournament(input: {
     message:
       scheduled.matches.length === 0
         ? "Equipo agregado. Cuando haya más rivales se programarán los partidos."
-        : `Equipo agregado y se programaron ${scheduled.matches.length} partidos.`,
+        : started
+          ? `Equipo agregado. Se programaron ${scheduled.matches.length} partidos desde la semana siguiente.`
+          : `Equipo agregado. Se programaron ${scheduled.matches.length} partidos, incluida esta semana.`,
   };
 }
 

@@ -13,7 +13,7 @@ export default async function RegisterTeamPage({ params }: { params: Promise<{ i
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
       <h1 className="display text-4xl">{tournament.name}</h1>
-      <p className="mb-4 text-muted">Inscribe tu equipo. No necesitas cuenta.</p>
+      <p className="mb-4 text-muted">Inscribe tu equipo.</p>
       <TournamentTabs id={id} registrationOpen={tournament.registrationOpen} />
       <TournamentInfo
         description={tournament.description}

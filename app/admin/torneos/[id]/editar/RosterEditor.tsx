@@ -171,9 +171,10 @@ export function RosterEditor({
       >
         <h2 className="display text-2xl">Agregar equipo</h2>
         <p className="text-sm text-muted">
-          Se programan partidos de un solo cruce contra los rivales del mismo grupo o del torneo. Los
-          partidos nuevos empiezan la semana siguiente, para no mover el calendario de esta semana.
-          Si no caben, amplía la fecha de fin, añade otro día de juego o sube los partidos por día.
+          Se programan partidos de un solo cruce contra los rivales del mismo grupo o del torneo. Si
+          el torneo no ha empezado, entran en esta misma semana; si ya inició, desde la semana
+          siguiente. Si no caben, amplía la fecha de fin, añade otro día de juego o sube los
+          partidos por día.
         </p>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
           <input

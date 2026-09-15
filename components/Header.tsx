@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { getAdminUser, isGlobalAdmin } from "@/lib/authz";
 import { logoutAction } from "@/lib/actions/auth";
-import { SearchBar } from "@/components/SearchBar";
+import { HeaderSearch } from "@/components/HeaderSearch";
 
 export async function Header() {
   const admin = await getAdminUser();
@@ -47,11 +47,9 @@ export async function Header() {
             )}
           </nav>
         </div>
-        <div className="mt-3">
-          <Suspense>
-            <SearchBar compact />
-          </Suspense>
-        </div>
+        <Suspense>
+          <HeaderSearch />
+        </Suspense>
       </div>
     </header>
   );
