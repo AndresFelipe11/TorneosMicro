@@ -3,9 +3,11 @@ import type { StandingRow } from "@/lib/tournament/types";
 export function StandingsTable({
   title,
   rows,
+  highlightTeamIds = [],
 }: {
   title?: string;
   rows: StandingRow[];
+  highlightTeamIds?: string[];
 }) {
   return (
     <section className="card overflow-hidden">
@@ -31,10 +33,18 @@ export function StandingsTable({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
-              <tr key={row.teamId} className={index < 2 ? "bg-lime/10" : undefined}>
+            {rows.map((row, index) => {
+              const highlighted = highlightTeamIds.includes(row.teamId);
+              return (
+              <tr
+                key={row.teamId}
+                className={highlighted ? "bg-lime/30 ring-2 ring-inset ring-lime" : index < 2 ? "bg-lime/10" : undefined}
+              >
                 <td className="font-bold">{index + 1}</td>
-                <td className="font-semibold">{row.teamName}</td>
+                <td className="font-semibold">
+                  {row.teamName}
+                  {highlighted ? <span className="ml-2 text-xs font-bold uppercase tracking-wide text-lime">Tu equipo</span> : null}
+                </td>
                 <td>{row.played}</td>
                 <td>{row.won}</td>
                 <td>{row.drawn}</td>
@@ -44,7 +54,8 @@ export function StandingsTable({
                 <td>{row.gd}</td>
                 <td className="font-extrabold">{row.points}</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

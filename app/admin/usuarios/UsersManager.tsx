@@ -2,14 +2,18 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useAskConfirm } from "@/components/ConfirmDialog";
 import { createAdminUserAction, deleteAdminUserAction, updateAdminUserAction } from "@/lib/actions/users";
 import { PasswordField } from "@/components/PasswordField";
+
+type UserRoleOption = "GLOBAL_ADMIN" | "TOURNAMENT_ADMIN" | "SCOREKEEPER";
 
 type UserRow = {
   id: string;
   name: string;
   email: string;
-  role: "GLOBAL_ADMIN" | "TOURNAMENT_ADMIN";
+  role: UserRoleOption;
+  whatsapp: string;
   tournamentIds: string[];
 };
 
@@ -31,7 +35,8 @@ export function UsersManager({
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<"GLOBAL_ADMIN" | "TOURNAMENT_ADMIN">("TOURNAMENT_ADMIN");
+  const [role, setRole] = useState<UserRoleOption>("TOURNAMENT_ADMIN");
+  const [whatsapp, setWhatsapp] = useState("");
   const [tournamentIds, setTournamentIds] = useState<string[]>([]);
 
   function run(task: () => Promise<{ error?: string; message?: string }>, resetCreate = false) {
@@ -49,6 +54,7 @@ export function UsersManager({
         setEmail("");
         setPassword("");
         setRole("TOURNAMENT_ADMIN");
+        setWhatsapp("");
         setTournamentIds([]);
       }
       router.refresh();
@@ -72,6 +78,7 @@ export function UsersManager({
                 email,
                 password,
                 role,
+                whatsapp,
                 tournamentIds,
               }),
             true,
@@ -81,7 +88,9 @@ export function UsersManager({
         <div>
           <h2 className="display text-2xl">Nuevo usuario</h2>
           <p className="text-sm text-muted">
-            El admin global ve todos los torneos. El admin de torneo solo los que le asignes.
+            El admin global ve todos los torneos. El admin de torneo solo los que le asignes. El
+            planillero solo carga marcadores. El WhatsApp sirve para confirmar las inscripciones
+            públicas.
           </p>
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
@@ -109,20 +118,32 @@ export function UsersManager({
             />
           </label>
           <label className="block space-y-1">
+            <span className="text-sm font-semibold">WhatsApp</span>
+            <input
+              className="field"
+              placeholder="300 123 4567"
+              value={whatsapp}
+              onChange={(event) => setWhatsapp(event.target.value)}
+            />
+          </label>
+          <label className="block space-y-1">
             <span className="text-sm font-semibold">Rol</span>
             <select
               className="field"
               value={role}
-              onChange={(event) => setRole(event.target.value as "GLOBAL_ADMIN" | "TOURNAMENT_ADMIN")}
+              onChange={(event) => setRole(event.target.value as UserRoleOption)}
             >
               <option value="TOURNAMENT_ADMIN">Admin de torneo</option>
+              <option value="SCOREKEEPER">Planillero</option>
               <option value="GLOBAL_ADMIN">Admin global</option>
             </select>
           </label>
         </div>
-        {role === "TOURNAMENT_ADMIN" ? (
+        {role === "TOURNAMENT_ADMIN" || role === "SCOREKEEPER" ? (
           <fieldset className="space-y-2">
-            <legend className="text-sm font-semibold">Torneos que puede administrar</legend>
+            <legend className="text-sm font-semibold">
+              {role === "SCOREKEEPER" ? "Torneos donde carga marcadores" : "Torneos que puede administrar"}
+            </legend>
             {tournaments.length === 0 ? (
               <p className="text-sm text-muted">Crea un torneo primero para poder asignarlo.</p>
             ) : (
@@ -187,8 +208,10 @@ function UserCard({
 }) {
   const [name, setName] = useState(user.name);
   const [role, setRole] = useState(user.role);
+  const [whatsapp, setWhatsapp] = useState(user.whatsapp);
   const [password, setPassword] = useState("");
   const [tournamentIds, setTournamentIds] = useState(user.tournamentIds);
+  const ask = useAskConfirm();
 
   return (
     <form
@@ -200,6 +223,7 @@ function UserCard({
             userId: user.id,
             name,
             role,
+            whatsapp,
             password: password || undefined,
             tournamentIds,
           }),
@@ -213,13 +237,26 @@ function UserCard({
           <p className="text-sm text-muted">{user.email}</p>
         </div>
         <span className="rounded-full bg-lime/20 px-3 py-1 text-xs font-bold text-lime">
-          {user.role === "GLOBAL_ADMIN" ? "Admin global" : "Admin de torneo"}
+          {user.role === "GLOBAL_ADMIN"
+            ? "Admin global"
+            : user.role === "SCOREKEEPER"
+              ? "Planillero"
+              : "Admin de torneo"}
         </span>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block space-y-1">
           <span className="text-sm font-semibold">Nombre</span>
           <input className="field" value={name} onChange={(event) => setName(event.target.value)} />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-sm font-semibold">WhatsApp</span>
+          <input
+            className="field"
+            placeholder="300 123 4567"
+            value={whatsapp}
+            onChange={(event) => setWhatsapp(event.target.value)}
+          />
         </label>
         <label className="block space-y-1">
           <span className="text-sm font-semibold">Rol</span>
@@ -229,6 +266,7 @@ function UserCard({
             onChange={(event) => setRole(event.target.value as UserRow["role"])}
           >
             <option value="TOURNAMENT_ADMIN">Admin de torneo</option>
+            <option value="SCOREKEEPER">Planillero</option>
             <option value="GLOBAL_ADMIN">Admin global</option>
           </select>
         </label>
@@ -242,9 +280,11 @@ function UserCard({
           />
         </label>
       </div>
-      {role === "TOURNAMENT_ADMIN" ? (
+      {role === "TOURNAMENT_ADMIN" || role === "SCOREKEEPER" ? (
         <fieldset className="space-y-2">
-          <legend className="text-sm font-semibold">Torneos</legend>
+          <legend className="text-sm font-semibold">
+            {role === "SCOREKEEPER" ? "Torneos donde carga marcadores" : "Torneos"}
+          </legend>
           <div className="flex flex-wrap gap-2">
             {tournaments.map((tournament) => (
               <label
@@ -282,8 +322,14 @@ function UserCard({
             className="btn btn-ghost text-red-400"
             disabled={pending}
             type="button"
-            onClick={() => {
-              if (!confirm(`¿Eliminar a ${user.name}?`)) return;
+            onClick={async () => {
+              const ok = await ask({
+                title: "Eliminar usuario",
+                message: `¿Eliminar a ${user.name}?`,
+                confirmLabel: "Eliminar",
+                danger: true,
+              });
+              if (!ok) return;
               onRun(() => deleteAdminUserAction(user.id));
             }}
           >

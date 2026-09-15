@@ -37,7 +37,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.sub = user.id;
         const role = (user as { role?: UserRole }).role;
-        if (role === "GLOBAL_ADMIN" || role === "TOURNAMENT_ADMIN") {
+        if (role === "GLOBAL_ADMIN" || role === "TOURNAMENT_ADMIN" || role === "SCOREKEEPER") {
           token.role = role;
         }
       }
@@ -46,7 +46,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     session({ session, token }) {
       if (session.user && token.sub) {
         session.user.id = token.sub;
-        session.user.role = token.role === "GLOBAL_ADMIN" ? "GLOBAL_ADMIN" : "TOURNAMENT_ADMIN";
+        session.user.role =
+          token.role === "GLOBAL_ADMIN"
+            ? "GLOBAL_ADMIN"
+            : token.role === "SCOREKEEPER"
+              ? "SCOREKEEPER"
+              : "TOURNAMENT_ADMIN";
       }
       return session;
     },

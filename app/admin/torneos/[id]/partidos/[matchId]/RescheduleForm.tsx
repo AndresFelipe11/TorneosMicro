@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useAskConfirm } from "@/components/ConfirmDialog";
 import { rescheduleMatchAction } from "@/lib/actions/tournaments";
 import { formatDateTime } from "@/lib/format";
+import { fromBogotaDateTimeLocal } from "@/lib/tournament/dates";
 
 export function RescheduleForm({
   matchId,
@@ -24,8 +26,17 @@ export function RescheduleForm({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const ask = useAskConfirm();
 
-  function submit() {
+  async function submit() {
+    const when = fromBogotaDateTimeLocal(value);
+    const whenLabel = when ? formatDateTime(when) : value;
+    const ok = await ask({
+      title: "Reprogramar partido",
+      message: `¿Reprogramar ${homeTeam} vs ${awayTeam}?\nAhora: ${formatDateTime(currentScheduledAt)}\nNueva fecha: ${whenLabel}`,
+      confirmLabel: "Reprogramar",
+    });
+    if (!ok) return;
     setError(null);
     setMessage(null);
     startTransition(async () => {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getAdminTournaments, isGlobalAdmin, requireAnyAdmin } from "@/lib/authz";
+import { getAdminTournaments, isGlobalAdmin, isScorekeeper, requireAnyAdmin } from "@/lib/authz";
 import { formatDate, formatLabel } from "@/lib/format";
 import { StatusBadge } from "@/components/MatchList";
 
@@ -14,8 +14,10 @@ export default async function AdminHomePage() {
           <h1 className="display text-4xl">Panel</h1>
           <p className="text-muted">
             {isGlobalAdmin(admin)
-              ? "Crea torneos, asigna administradores y carga resultados."
-              : "Administra los torneos que te asignaron: calendario, equipos y resultados."}
+              ? "Crea torneos, asigna administradores y planilleros, y carga resultados."
+              : isScorekeeper(admin)
+                ? "Carga o corrige los marcadores de los torneos que te asignaron."
+                : "Administra los torneos que te asignaron: calendario, equipos y resultados."}
           </p>
         </div>
         {isGlobalAdmin(admin) ? (
@@ -44,7 +46,9 @@ export default async function AdminHomePage() {
           <p className="text-muted">
             {isGlobalAdmin(admin)
               ? "No hay torneos todavía."
-              : "Aún no tienes torneos asignados. Pídele al admin global que te asigne uno."}
+              : isScorekeeper(admin)
+                ? "Aún no tienes torneos asignados. Pídele al admin que te asigne como planillero."
+                : "Aún no tienes torneos asignados. Pídele al admin global que te asigne uno."}
           </p>
         ) : null}
       </div>

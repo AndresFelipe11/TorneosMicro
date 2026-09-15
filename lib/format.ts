@@ -118,10 +118,16 @@ export function scoreLabel(
   return label;
 }
 
-export function playerLabel(name: string, number?: number | null) {
-  return number == null ? name : `#${number} ${name}`;
+export function playerLabel(name: string, _number?: number | null) {
+  return name;
 }
 
 export function cardLabel(type: "YELLOW" | "RED") {
   return type === "RED" ? "Roja" : "Amarilla";
+}
+
+export function roleLabel(role: string) {
+  if (role === "GLOBAL_ADMIN") return "Admin global";
+  if (role === "SCOREKEEPER") return "Planillero";
+  return "Admin de torneo";
 }

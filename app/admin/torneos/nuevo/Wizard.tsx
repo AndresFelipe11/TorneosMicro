@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useAskConfirm } from "@/components/ConfirmDialog";
 import { createTournamentAction } from "@/lib/actions/tournaments";
 import { generateTournamentSchedule, withDistributedGroups } from "@/lib/tournament/generate";
 import { groupNameAt } from "@/lib/tournament/groups";
@@ -30,6 +31,7 @@ export function Wizard() {
   const [step, setStep] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const ask = useAskConfirm();
   const [config, setConfig] = useState<TournamentConfig>({
     name: "",
     startDate: toInputDate(start),
@@ -43,6 +45,9 @@ export function Wizard() {
     matchDurationMinutes: 40,
     startTime: "09:00",
     venue: "",
+    description: "",
+    registrationFee: "",
+    prizes: "",
     teams: [emptyTeam(), emptyTeam(), emptyTeam(), emptyTeam()],
   });
 
@@ -93,12 +98,19 @@ export function Wizard() {
     );
   }
 
-  function submit() {
+  async function submit() {
     setError(null);
     if (preview.error) {
       setError(preview.error);
       return;
     }
+    const title = config.name.trim() || "este torneo";
+    const ok = await ask({
+      title: "Crear torneo",
+      message: `¿Crear ${title} con ${preview.matches.length} partidos?`,
+      confirmLabel: "Crear",
+    });
+    if (!ok) return;
     startTransition(async () => {
       const result = await createTournamentAction({
         config: prepared,
@@ -136,6 +148,38 @@ export function Wizard() {
               <input className="field" type="date" value={config.endDate} onChange={(e) => update("endDate", e.target.value)} />
             </Field>
           </div>
+          <Field label="Cancha / sede">
+            <input
+              className="field"
+              placeholder="Ej. Cancha 1 · Parque El Salitre"
+              value={config.venue ?? ""}
+              onChange={(e) => update("venue", e.target.value)}
+            />
+          </Field>
+          <Field label="Descripción">
+            <textarea
+              className="field min-h-24"
+              placeholder="Cuéntale a los equipos de qué se trata el torneo."
+              value={config.description ?? ""}
+              onChange={(e) => update("description", e.target.value)}
+            />
+          </Field>
+          <Field label="Valor de la inscripción">
+            <textarea
+              className="field min-h-20"
+              placeholder="Ej. $50.000 por equipo, incluye balón y hidratación."
+              value={config.registrationFee ?? ""}
+              onChange={(e) => update("registrationFee", e.target.value)}
+            />
+          </Field>
+          <Field label="Premiación">
+            <textarea
+              className="field min-h-20"
+              placeholder="Ej. 1° $400.000 · 2° $200.000 · Goleador medalla."
+              value={config.prizes ?? ""}
+              onChange={(e) => update("prizes", e.target.value)}
+            />
+          </Field>
         </div>
       ) : null}
 
@@ -278,7 +322,7 @@ export function Wizard() {
             <Field label="Cancha / sede">
               <input
                 className="field"
-                placeholder="Opcional"
+                placeholder="Ej. Cancha 1 · Parque El Salitre"
                 value={config.venue ?? ""}
                 onChange={(e) => update("venue", e.target.value)}
               />

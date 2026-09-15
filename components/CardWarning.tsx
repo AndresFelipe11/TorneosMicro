@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useAskConfirm } from "@/components/ConfirmDialog";
 import { setCardsPaidAction } from "@/lib/actions/tournaments";
 import { playerLabel } from "@/lib/format";
 
@@ -29,6 +30,7 @@ export function CardWarning({
   canMarkPaid?: boolean;
 }) {
   const router = useRouter();
+  const ask = useAskConfirm();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
@@ -63,7 +65,16 @@ export function CardWarning({
                 type="button"
                 className="btn btn-ghost text-xs"
                 disabled={pending}
-                onClick={() => markPaid(row.unpaidYellowIds)}
+                onClick={async () => {
+                  const who = playerLabel(row.playerName, row.playerNumber);
+                  const ok = await ask({
+                    title: "Marcar tarjeta pagada",
+                    message: `¿Marcar pagada la amarilla de ${who} (${row.teamName})?\nEl aviso desaparece.`,
+                    confirmLabel: "Marcar pagada",
+                  });
+                  if (!ok) return;
+                  markPaid(row.unpaidYellowIds);
+                }}
               >
                 {pending ? "Guardando..." : "Marcar pagada"}
               </button>

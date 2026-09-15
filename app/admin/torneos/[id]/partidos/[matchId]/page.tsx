@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { playerCardsFor, getTournament } from "@/lib/queries";
-import { requireTournamentPage } from "@/lib/authz";
+import { getMatchResultLogs, playerCardsFor, getTournament } from "@/lib/queries";
+import { canManageTournament, requireTournamentPage } from "@/lib/authz";
+import { ResultAuditLog } from "@/components/ResultAuditLog";
 import { formatDateTime, knockoutLabel, phaseLabel } from "@/lib/format";
 import { displayVenue } from "@/lib/tournament/match";
 import { cardsForTeams } from "@/lib/tournament/discipline";
@@ -15,11 +16,13 @@ export default async function AdminMatchPage({
   params: Promise<{ id: string; matchId: string }>;
 }) {
   const { id, matchId } = await params;
-  await requireTournamentPage(id);
+  const admin = await requireTournamentPage(id);
   const tournament = await getTournament(id);
   if (!tournament) notFound();
   const match = tournament.matches.find((item) => item.id === matchId);
   if (!match) notFound();
+  const canSchedule = canManageTournament(admin, id);
+  const resultLogs = await getMatchResultLogs(matchId);
 
   const homePlayers = tournament.teams.find((team) => team.id === match.homeTeamId)?.players ?? [];
   const awayPlayers = tournament.teams.find((team) => team.id === match.awayTeamId)?.players ?? [];
@@ -30,10 +33,14 @@ export default async function AdminMatchPage({
       <Link href={`/admin/torneos/${id}`} className="text-sm font-bold text-lime">
         ← Volver al torneo
       </Link>
-      {" · "}
-      <Link href={`/admin/torneos/${id}/calendario`} className="text-sm font-bold text-lime">
-        Calendario
-      </Link>
+      {canSchedule ? (
+        <>
+          {" · "}
+          <Link href={`/admin/torneos/${id}/calendario`} className="text-sm font-bold text-lime">
+            Calendario
+          </Link>
+        </>
+      ) : null}
       <p className="mt-4 text-sm uppercase tracking-wide text-muted">
         {formatDateTime(match.scheduledAt)} · {phaseLabel(match.phase)}
         {match.knockoutRound ? ` · ${knockoutLabel(match.knockoutRound)}` : ` · Jornada ${match.round}`}
@@ -43,7 +50,7 @@ export default async function AdminMatchPage({
         {match.homeTeam.name} vs {match.awayTeam.name}
       </h1>
       <div className="space-y-6">
-        {match.status === "SCHEDULED" ? (
+        {canSchedule && match.status === "SCHEDULED" ? (
           <RescheduleForm
             matchId={match.id}
             homeTeam={match.homeTeam.name}
@@ -57,6 +64,7 @@ export default async function AdminMatchPage({
           key={`${match.status}-${match.homeScore}-${match.awayScore}-${match.cards.length}-${match.goals.length}`}
           matchId={match.id}
           knockout={match.phase === "KNOCKOUT"}
+          canSchedule={canSchedule}
           homeTeam={match.homeTeam}
           awayTeam={match.awayTeam}
           homePlayers={homePlayers}
@@ -75,19 +83,18 @@ export default async function AdminMatchPage({
               playerId: goal.playerId,
               playerName: goal.player.name,
               teamId: goal.teamId,
-              minute: goal.minute,
             })),
             cards: match.cards.map((card) => ({
               playerId: card.playerId,
               playerName: card.player.name,
               teamId: card.teamId,
               type: card.type,
-              minute: card.minute,
               paid: card.paid,
             })),
             scoresheet: match.scoresheet,
           }}
         />
+        <ResultAuditLog logs={resultLogs} />
       </div>
     </div>
   );

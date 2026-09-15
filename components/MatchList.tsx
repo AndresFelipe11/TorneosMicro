@@ -43,6 +43,8 @@ type MatchItem = {
   round: number;
   knockoutRound?: "R16" | "QF" | "SF" | "F" | null;
   venue?: string | null;
+  homeTeamId?: string;
+  awayTeamId?: string;
   homeTeam: { name: string };
   awayTeam: { name: string };
   group?: { name: string } | null;
@@ -53,10 +55,12 @@ export function MatchList({
   matches,
   hrefFor,
   tournamentVenue,
+  highlightTeamIds = [],
 }: {
   matches: MatchItem[];
   hrefFor: (id: string) => string;
   tournamentVenue?: string | null;
+  highlightTeamIds?: string[];
 }) {
   if (matches.length === 0) {
     return <p className="text-muted">Aún no hay partidos programados.</p>;
@@ -64,11 +68,20 @@ export function MatchList({
 
   return (
     <div className="grid gap-3">
-      {matches.map((match) => (
+      {matches.map((match) => {
+        const highlighted =
+          highlightTeamIds.length > 0 &&
+          Boolean(
+            (match.homeTeamId && highlightTeamIds.includes(match.homeTeamId)) ||
+              (match.awayTeamId && highlightTeamIds.includes(match.awayTeamId)),
+          );
+        return (
         <Link
           key={match.id}
           href={hrefFor(match.id)}
-          className="card flex flex-col gap-2 p-4 text-ink no-underline sm:flex-row sm:items-center sm:justify-between"
+          className={`card flex flex-col gap-2 p-4 text-ink no-underline sm:flex-row sm:items-center sm:justify-between ${
+            highlighted ? "bg-lime/20 ring-2 ring-lime" : ""
+          }`}
         >
           <div>
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">
@@ -94,7 +107,8 @@ export function MatchList({
           </div>
           <StatusBadge status={match.status} />
         </Link>
-      ))}
+        );
+      })}
     </div>
   );
 }

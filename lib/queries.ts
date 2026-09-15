@@ -49,6 +49,41 @@ export async function getTournament(id: string) {
   });
 }
 
+export async function getTeamRegistrations(tournamentId: string) {
+  return prisma.teamRegistration.findMany({
+    where: { tournamentId },
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+const resultLogInclude = {
+  user: { select: { id: true, name: true, role: true } },
+  match: {
+    select: {
+      id: true,
+      homeTeam: { select: { name: true } },
+      awayTeam: { select: { name: true } },
+    },
+  },
+} as const;
+
+export async function getMatchResultLogs(matchId: string) {
+  return prisma.matchResultLog.findMany({
+    where: { matchId },
+    include: resultLogInclude,
+    orderBy: { createdAt: "desc" },
+  });
+}
+
+export async function getTournamentResultLogs(tournamentId: string, take = 20) {
+  return prisma.matchResultLog.findMany({
+    where: { match: { tournamentId } },
+    include: resultLogInclude,
+    orderBy: { createdAt: "desc" },
+    take,
+  });
+}
+
 export type TournamentDetail = NonNullable<Awaited<ReturnType<typeof getTournament>>>;
 
 export function playedMatchesOf(tournament: TournamentDetail) {

@@ -1,15 +1,15 @@
 import { notFound } from "next/navigation";
 import { getTournament } from "@/lib/queries";
-import { requireTournamentPage } from "@/lib/authz";
+import { requireTournamentManagePage } from "@/lib/authz";
 import { toBogotaDateString } from "@/lib/tournament/dates";
-import { isClosedMatch } from "@/lib/tournament/match";
+import { hasTournamentStarted, isClosedMatch } from "@/lib/tournament/match";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { MatchList } from "@/components/MatchList";
 import { ScheduleEditor } from "./ScheduleEditor";
 
 export default async function AdminCalendarPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  await requireTournamentPage(id);
+  await requireTournamentManagePage(id);
   const tournament = await getTournament(id);
   if (!tournament) notFound();
 
@@ -20,12 +20,14 @@ export default async function AdminCalendarPage({ params }: { params: Promise<{ 
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="display text-4xl">{tournament.name}</h1>
       <p className="mb-4 text-muted">
-        Cambia los días del torneo o entra a un partido para reprogramarlo si un equipo no puede.
+        Si el torneo no ha empezado, cambiar los días reprograma también esa misma semana. Si ya
+        inició, los partidos se quedan y el cambio se hace partido por partido.
       </p>
       <TournamentTabs id={id} admin />
       <ScheduleEditor
         tournamentId={tournament.id}
         finished={tournament.status === "FINISHED"}
+        started={hasTournamentStarted(tournament)}
         pendingCount={pending.length}
         playedCount={played.length}
         initial={{

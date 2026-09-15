@@ -4,17 +4,32 @@ import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { resetMatchResultAction, saveMatchResultAction } from "@/lib/actions/tournaments";
 import { CardWarning } from "@/components/CardWarning";
+import { useAskConfirm } from "@/components/ConfirmDialog";
 import { playerLabel } from "@/lib/format";
 import { fromBogotaDateTimeLocal, toBogotaDateTimeLocal } from "@/lib/tournament/dates";
 
 type Player = { id: string; name: string; number: number | null; teamId: string };
-type GoalDraft = { playerId: string; playerName: string; teamId: string; minute: string };
+type GoalDraft = { playerId: string; playerName: string; teamId: string; count: string };
+
+function groupGoals(goals: { playerId: string; playerName: string; teamId: string }[]): GoalDraft[] {
+  const grouped: GoalDraft[] = [];
+  for (const goal of goals) {
+    const match = grouped.find(
+      (item) =>
+        item.teamId === goal.teamId &&
+        ((goal.playerId && item.playerId === goal.playerId) ||
+          (!goal.playerId && item.playerName.toLowerCase() === goal.playerName.toLowerCase())),
+    );
+    if (match) match.count = String(Number(match.count) + 1);
+    else grouped.push({ playerId: goal.playerId, playerName: goal.playerName, teamId: goal.teamId, count: "1" });
+  }
+  return grouped;
+}
 type CardDraft = {
   playerId: string;
   playerName: string;
   teamId: string;
   type: "YELLOW" | "RED";
-  minute: string;
   paid: boolean;
 };
 
@@ -26,6 +41,7 @@ export function ResultForm({
   awayPlayers,
   initial,
   knockout,
+  canSchedule = true,
   cardWarnings,
 }: {
   matchId: string;
@@ -34,6 +50,7 @@ export function ResultForm({
   homePlayers: Player[];
   awayPlayers: Player[];
   knockout: boolean;
+  canSchedule?: boolean;
   cardWarnings: {
     playerName: string;
     playerNumber: number | null;
@@ -51,40 +68,32 @@ export function ResultForm({
     winnerId: string | null;
     scheduledAt: Date | string;
     venue: string;
-    goals: { playerId: string; playerName: string; teamId: string; minute: number | null }[];
+    goals: { playerId: string; playerName: string; teamId: string }[];
     cards: {
       playerId: string;
       playerName: string;
       teamId: string;
       type: "YELLOW" | "RED";
-      minute: number | null;
       paid: boolean;
     }[];
     scoresheet: { fileName: string; uploadedAt: Date | string } | null;
   };
 }) {
   const router = useRouter();
+  const ask = useAskConfirm();
   const [homeScore, setHomeScore] = useState(String(initial.homeScore ?? 0));
   const [awayScore, setAwayScore] = useState(String(initial.awayScore ?? 0));
   const [homePenalties, setHomePenalties] = useState(String(initial.homePenalties ?? ""));
   const [awayPenalties, setAwayPenalties] = useState(String(initial.awayPenalties ?? ""));
   const [scheduledAt, setScheduledAt] = useState(toBogotaDateTimeLocal(new Date(initial.scheduledAt)));
   const [venue, setVenue] = useState(initial.venue);
-  const [goals, setGoals] = useState<GoalDraft[]>(
-    initial.goals.map((goal) => ({
-      playerId: goal.playerId,
-      playerName: goal.playerName,
-      teamId: goal.teamId,
-      minute: goal.minute == null ? "" : String(goal.minute),
-    })),
-  );
+  const [goals, setGoals] = useState<GoalDraft[]>(() => groupGoals(initial.goals));
   const [cards, setCards] = useState<CardDraft[]>(
     initial.cards.map((card) => ({
       playerId: card.playerId,
       playerName: card.playerName,
       teamId: card.teamId,
       type: card.type,
-      minute: card.minute == null ? "" : String(card.minute),
       paid: card.paid,
     })),
   );
@@ -121,6 +130,12 @@ export function ResultForm({
     );
   }
 
+  function scoredBy(teamId: string) {
+    return goals
+      .filter((goal) => goal.teamId === teamId)
+      .reduce((sum, goal) => sum + (Number(goal.count) || 0), 0);
+  }
+
   function setCardPlayer(index: number, playerId: string, teamId: string) {
     const selected = playersOf(teamId).find((player) => player.id === playerId);
     setCards((current) =>
@@ -139,23 +154,54 @@ export function ResultForm({
     );
   }
 
-  function submitPlayed() {
+  async function submitPlayed() {
     setError(null);
     setMessage(null);
+    const when = canSchedule ? fromBogotaDateTimeLocal(scheduledAt) : null;
+    if (canSchedule && !when) {
+      setError("La fecha y hora no son válidas.");
+      return;
+    }
+    if (goals.some((goal) => !goal.playerId && !goal.playerName.trim())) {
+      setError("Cada goleador necesita un jugador de la lista o un nombre nuevo.");
+      return;
+    }
+    if (goals.some((goal) => !Number.isInteger(Number(goal.count)) || Number(goal.count) < 1)) {
+      setError("Cada goleador necesita al menos 1 gol.");
+      return;
+    }
+    const homeGoals = scoredBy(homeTeam.id);
+    const awayGoals = scoredBy(awayTeam.id);
+    if (homeGoals > Number(homeScore)) {
+      setError(`${homeTeam.name} tiene ${homeGoals} goles anotados y el marcador es ${homeScore}.`);
+      return;
+    }
+    if (awayGoals > Number(awayScore)) {
+      setError(`${awayTeam.name} tiene ${awayGoals} goles anotados y el marcador es ${awayScore}.`);
+      return;
+    }
+    if (cards.some((card) => !card.playerId && !card.playerName.trim())) {
+      setError("Cada tarjeta necesita un jugador de la lista o un nombre nuevo.");
+      return;
+    }
+    const scoreText = `${homeTeam.name} ${homeScore} – ${awayScore} ${awayTeam.name}`;
+    const extra =
+      knockout && isDraw && homePenalties !== "" && awayPenalties !== ""
+        ? ` (${homePenalties}-${awayPenalties} en penales)`
+        : "";
+    const ok = closed
+      ? await ask({
+          title: "Corregir resultado",
+          message: `¿Corregir el resultado a ${scoreText}${extra}?\nSe reemplazan goles y tarjetas.`,
+          confirmLabel: "Corregir",
+        })
+      : await ask({
+          title: "Guardar resultado",
+          message: `¿Guardar el resultado ${scoreText}${extra}?`,
+          confirmLabel: "Guardar",
+        });
+    if (!ok) return;
     startTransition(async () => {
-      const when = fromBogotaDateTimeLocal(scheduledAt);
-      if (!when) {
-        setError("La fecha y hora no son válidas.");
-        return;
-      }
-      if (goals.some((goal) => !goal.playerId && !goal.playerName.trim())) {
-        setError("Cada gol necesita un jugador de la lista o un nombre nuevo.");
-        return;
-      }
-      if (cards.some((card) => !card.playerId && !card.playerName.trim())) {
-        setError("Cada tarjeta necesita un jugador de la lista o un nombre nuevo.");
-        return;
-      }
       const result = await saveMatchResultAction({
         matchId,
         outcome: "PLAYED",
@@ -163,20 +209,20 @@ export function ResultForm({
         awayScore: Number(awayScore),
         homePenalties: knockout && isDraw && homePenalties !== "" ? Number(homePenalties) : null,
         awayPenalties: knockout && isDraw && awayPenalties !== "" ? Number(awayPenalties) : null,
-        scheduledAt: when.toISOString(),
-        venue,
-        goals: goals.map((goal) => ({
-          playerId: goal.playerId || undefined,
-          playerName: goal.playerName,
-          teamId: goal.teamId,
-          minute: goal.minute === "" ? null : Number(goal.minute),
-        })),
+        scheduledAt: canSchedule && when ? when.toISOString() : undefined,
+        venue: canSchedule ? venue : undefined,
+        goals: goals.flatMap((goal) =>
+          Array.from({ length: Number(goal.count) }, () => ({
+            playerId: goal.playerId || undefined,
+            playerName: goal.playerName,
+            teamId: goal.teamId,
+          })),
+        ),
         cards: cards.map((card) => ({
           playerId: card.playerId || undefined,
           playerName: card.playerName,
           teamId: card.teamId,
           type: card.type,
-          minute: card.minute === "" ? null : Number(card.minute),
           paid: card.type === "YELLOW" && card.paid,
         })),
         scoresheet,
@@ -191,10 +237,13 @@ export function ResultForm({
     });
   }
 
-  function submitWalkover(winnerId: string, winnerName: string) {
-    if (!confirm(`¿Dar el partido por W.O. a favor de ${winnerName}? Queda 3-0 y no se registran goles.`)) {
-      return;
-    }
+  async function submitWalkover(winnerId: string, winnerName: string) {
+    const ok = await ask({
+      title: "Walkover",
+      message: `¿Dar el partido por W.O. a favor de ${winnerName}?\nQueda 3-0 y no se registran goles.`,
+      confirmLabel: "Confirmar W.O.",
+    });
+    if (!ok) return;
     setError(null);
     setMessage(null);
     startTransition(async () => {
@@ -217,10 +266,14 @@ export function ResultForm({
     });
   }
 
-  function resetResult() {
-    if (!confirm("¿Anular el resultado? El partido vuelve a programado. Se borran goles y tarjetas.")) {
-      return;
-    }
+  async function resetResult() {
+    const ok = await ask({
+      title: "Anular resultado",
+      message: "¿Anular el resultado? El partido vuelve a programado.\nSe borran goles y tarjetas.",
+      confirmLabel: "Anular",
+      danger: true,
+    });
+    if (!ok) return;
     setError(null);
     setMessage(null);
     startTransition(async () => {
@@ -248,19 +301,23 @@ export function ResultForm({
           <input className="field" type="number" min={0} value={awayScore} onChange={(e) => setAwayScore(e.target.value)} />
         </label>
       </div>
-      <label className="block space-y-1">
-        <span className="text-sm font-semibold">Fecha y hora (Bogotá)</span>
-        <input className="field" type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
-      </label>
-      <label className="block space-y-1">
-        <span className="text-sm font-semibold">Cancha / sede</span>
-        <input
-          className="field"
-          placeholder="Ej. Cancha 1 · Parque El Salitre"
-          value={venue}
-          onChange={(e) => setVenue(e.target.value)}
-        />
-      </label>
+      {canSchedule ? (
+        <>
+          <label className="block space-y-1">
+            <span className="text-sm font-semibold">Fecha y hora (Bogotá)</span>
+            <input className="field" type="datetime-local" value={scheduledAt} onChange={(e) => setScheduledAt(e.target.value)} />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm font-semibold">Cancha / sede</span>
+            <input
+              className="field"
+              placeholder="Ej. Cancha 1 · Parque El Salitre"
+              value={venue}
+              onChange={(e) => setVenue(e.target.value)}
+            />
+          </label>
+        </>
+      ) : null}
       {knockout && isDraw ? (
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="space-y-1">
@@ -291,47 +348,72 @@ export function ResultForm({
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h3 className="display text-xl">Goleadores</h3>
           <div className="flex gap-2">
-            <button type="button" className="btn btn-ghost text-sm" onClick={() => setGoals((current) => [...current, { playerId: "", playerName: "", teamId: homeTeam.id, minute: "" }])}>
+            <button
+              type="button"
+              className="btn btn-ghost text-sm"
+              onClick={() =>
+                setGoals((current) => [...current, { playerId: "", playerName: "", teamId: homeTeam.id, count: "1" }])
+              }
+            >
               Gol {homeTeam.name}
             </button>
-            <button type="button" className="btn btn-ghost text-sm" onClick={() => setGoals((current) => [...current, { playerId: "", playerName: "", teamId: awayTeam.id, minute: "" }])}>
+            <button
+              type="button"
+              className="btn btn-ghost text-sm"
+              onClick={() =>
+                setGoals((current) => [...current, { playerId: "", playerName: "", teamId: awayTeam.id, count: "1" }])
+              }
+            >
               Gol {awayTeam.name}
             </button>
           </div>
         </div>
         <p className="mb-3 text-sm text-muted">
-          Elige un jugador del desplegable o escribe un nombre. Si no existe, se crea en ese equipo al guardar.
+          Pon cuántos goles metió y elige el jugador, o escribe un nombre nuevo. No pueden sumar más que el marcador.
         </p>
         <div className="space-y-2">
           {goals.map((goal, index) => {
             const options = playersOf(goal.teamId);
             const teamName = goal.teamId === homeTeam.id ? homeTeam.name : awayTeam.name;
             return (
-              <div key={`${goal.teamId}-${index}`} className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_7rem_auto]">
-                <select className="field" value={goal.playerId} onChange={(e) => setGoalPlayer(index, e.target.value, goal.teamId)}>
-                  <option value="">Lista · {teamName}</option>
-                  {options.map((player) => (
-                    <option key={player.id} value={player.id}>
-                      {playerLabel(player.name, player.number)}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  className="field"
-                  placeholder="O escribe el nombre"
-                  value={goal.playerName}
-                  onChange={(e) => setGoalName(index, e.target.value, goal.teamId)}
-                />
+              <div key={`${goal.teamId}-${index}`} className="grid gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto]">
                 <input
                   className="field"
                   type="number"
                   min={1}
-                  placeholder="Min"
-                  value={goal.minute}
+                  title={`Goles de ${teamName}`}
+                  value={goal.count}
                   onChange={(e) =>
-                    setGoals((current) => current.map((item, i) => (i === index ? { ...item, minute: e.target.value } : item)))
+                    setGoals((current) => current.map((item, i) => (i === index ? { ...item, count: e.target.value } : item)))
                   }
                 />
+                {goal.playerId ? (
+                  <select className="field" value={goal.playerId} onChange={(e) => setGoalPlayer(index, e.target.value, goal.teamId)}>
+                    <option value="">Lista · {teamName}</option>
+                    {options.map((player) => (
+                      <option key={player.id} value={player.id}>
+                        {playerLabel(player.name, player.number)}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <select className="field" value="" onChange={(e) => setGoalPlayer(index, e.target.value, goal.teamId)}>
+                      <option value="">Lista · {teamName}</option>
+                      {options.map((player) => (
+                        <option key={player.id} value={player.id}>
+                          {playerLabel(player.name, player.number)}
+                        </option>
+                      ))}
+                    </select>
+                    <input
+                      className="field"
+                      placeholder="O escribe el nombre"
+                      value={goal.playerName}
+                      onChange={(e) => setGoalName(index, e.target.value, goal.teamId)}
+                    />
+                  </div>
+                )}
                 <button type="button" className="btn btn-ghost" onClick={() => setGoals((current) => current.filter((_, i) => i !== index))}>
                   Quitar
                 </button>
@@ -351,7 +433,7 @@ export function ResultForm({
               onClick={() =>
                 setCards((current) => [
                   ...current,
-                  { playerId: "", playerName: "", teamId: homeTeam.id, type: "YELLOW", minute: "", paid: false },
+                  { playerId: "", playerName: "", teamId: homeTeam.id, type: "YELLOW", paid: false },
                 ])
               }
             >
@@ -363,7 +445,7 @@ export function ResultForm({
               onClick={() =>
                 setCards((current) => [
                   ...current,
-                  { playerId: "", playerName: "", teamId: awayTeam.id, type: "YELLOW", minute: "", paid: false },
+                  { playerId: "", playerName: "", teamId: awayTeam.id, type: "YELLOW", paid: false },
                 ])
               }
             >
@@ -381,7 +463,7 @@ export function ResultForm({
             return (
               <div
                 key={`${card.teamId}-card-${index}`}
-                className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem_6rem_auto_auto]"
+                className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_8rem_auto_auto]"
               >
                 <select className="field" value={card.playerId} onChange={(e) => setCardPlayer(index, e.target.value, card.teamId)}>
                   <option value="">Lista · {teamName}</option>
@@ -413,16 +495,6 @@ export function ResultForm({
                   <option value="YELLOW">Amarilla</option>
                   <option value="RED">Roja</option>
                 </select>
-                <input
-                  className="field"
-                  type="number"
-                  min={1}
-                  placeholder="Min"
-                  value={card.minute}
-                  onChange={(e) =>
-                    setCards((current) => current.map((item, i) => (i === index ? { ...item, minute: e.target.value } : item)))
-                  }
-                />
                 {card.type === "YELLOW" ? (
                   <label className="flex items-center gap-2 text-sm font-semibold">
                     <input

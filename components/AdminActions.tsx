@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useAskConfirm } from "@/components/ConfirmDialog";
 import { advancePhaseAction, deleteTournamentAction, finishTournamentAction } from "@/lib/actions/tournaments";
 
 export function AdvanceButton({ tournamentId }: { tournamentId: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const ask = useAskConfirm();
 
   return (
     <div className="space-y-2">
@@ -13,7 +15,13 @@ export function AdvanceButton({ tournamentId }: { tournamentId: string }) {
         type="button"
         className="btn btn-lime"
         disabled={pending}
-        onClick={() => {
+        onClick={async () => {
+          const ok = await ask({
+            title: "Avanzar de fase",
+            message: "¿Avanzar de fase? Se crean los partidos de la siguiente ronda según la clasificación.",
+            confirmLabel: "Avanzar",
+          });
+          if (!ok) return;
           setMessage(null);
           startTransition(async () => {
             const result = await advancePhaseAction(tournamentId);
@@ -30,12 +38,22 @@ export function AdvanceButton({ tournamentId }: { tournamentId: string }) {
 
 export function FinishButton({ tournamentId }: { tournamentId: string }) {
   const [pending, startTransition] = useTransition();
+  const ask = useAskConfirm();
   return (
     <button
       type="button"
       className="btn btn-dark"
       disabled={pending}
-      onClick={() => startTransition(() => void finishTournamentAction(tournamentId))}
+      onClick={async () => {
+        const ok = await ask({
+          title: "Finalizar torneo",
+          message: "¿Marcar el torneo como finalizado? Ya no se podrán cargar resultados ni reprogramar.",
+          confirmLabel: "Finalizar",
+          danger: true,
+        });
+        if (!ok) return;
+        startTransition(() => void finishTournamentAction(tournamentId));
+      }}
     >
       Marcar finalizado
     </button>
@@ -44,13 +62,20 @@ export function FinishButton({ tournamentId }: { tournamentId: string }) {
 
 export function DeleteTournamentButton({ tournamentId }: { tournamentId: string }) {
   const [pending, startTransition] = useTransition();
+  const ask = useAskConfirm();
   return (
     <button
       type="button"
       className="btn btn-ghost text-red-400"
       disabled={pending}
-      onClick={() => {
-        if (!confirm("¿Eliminar este torneo y todos sus partidos?")) return;
+      onClick={async () => {
+        const ok = await ask({
+          title: "Eliminar torneo",
+          message: "¿Eliminar este torneo y todos sus partidos?",
+          confirmLabel: "Eliminar",
+          danger: true,
+        });
+        if (!ok) return;
         startTransition(() => {
           void deleteTournamentAction(tournamentId);
         });

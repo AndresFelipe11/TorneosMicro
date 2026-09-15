@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { useAskConfirm } from "@/components/ConfirmDialog";
 import {
   addPlayerAction,
   addTeamAction,
@@ -28,21 +29,42 @@ export function RosterEditor({
   format,
   groups,
   teams,
+  venue: initialVenue,
+  description: initialDescription,
+  registrationFee: initialFee,
+  prizes: initialPrizes,
 }: {
   tournamentId: string;
   tournamentName: string;
   format: "ROUND_ROBIN" | "GROUPS" | "QUADRANGULAR";
   groups: Group[];
   teams: Team[];
+  venue: string;
+  description: string;
+  registrationFee: string;
+  prizes: string;
 }) {
   const router = useRouter();
+  const ask = useAskConfirm();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState(tournamentName);
+  const [venue, setVenue] = useState(initialVenue);
+  const [description, setDescription] = useState(initialDescription);
+  const [registrationFee, setRegistrationFee] = useState(initialFee);
+  const [prizes, setPrizes] = useState(initialPrizes);
   const [newTeam, setNewTeam] = useState("");
   const [newGroup, setNewGroup] = useState(groups[0]?.id ?? "");
   const [newPlayers, setNewPlayers] = useState("");
+
+  useEffect(() => {
+    setName(tournamentName);
+    setVenue(initialVenue);
+    setDescription(initialDescription);
+    setRegistrationFee(initialFee);
+    setPrizes(initialPrizes);
+  }, [tournamentName, initialVenue, initialDescription, initialFee, initialPrizes]);
 
   function run(task: () => Promise<{ error?: string; message?: string; ok?: boolean } | void>) {
     setError(null);
@@ -60,25 +82,78 @@ export function RosterEditor({
   return (
     <div className="space-y-6">
       <form
-        className="card flex flex-col gap-3 p-4 sm:flex-row sm:items-end"
+        id="info"
+        className="card space-y-3 p-4"
         onSubmit={(event) => {
           event.preventDefault();
-          run(() => updateTournamentNameAction(tournamentId, name));
+          run(() =>
+            updateTournamentNameAction(tournamentId, name, venue, {
+              description,
+              registrationFee,
+              prizes,
+            }),
+          );
         }}
       >
-        <label className="block flex-1 space-y-1">
-          <span className="text-sm font-semibold">Nombre del torneo</span>
-          <input className="field" value={name} onChange={(e) => setName(e.target.value)} />
+        <h2 className="display text-2xl">Nombre, descripción y premiación</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block space-y-1">
+            <span className="text-sm font-semibold">Nombre del torneo</span>
+            <input className="field" value={name} onChange={(e) => setName(e.target.value)} />
+          </label>
+          <label className="block space-y-1">
+            <span className="text-sm font-semibold">Cancha / sede</span>
+            <input
+              className="field"
+              placeholder="Ej. Cancha 1 · Parque El Salitre"
+              value={venue}
+              onChange={(e) => setVenue(e.target.value)}
+            />
+          </label>
+        </div>
+        <label className="block space-y-1">
+          <span className="text-sm font-semibold">Descripción</span>
+          <textarea
+            className="field min-h-24"
+            placeholder="Cuéntale a los equipos de qué se trata el torneo."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-sm font-semibold">Valor de la inscripción</span>
+          <textarea
+            className="field min-h-20"
+            placeholder="Ej. $50.000 por equipo, incluye balón y hidratación."
+            value={registrationFee}
+            onChange={(e) => setRegistrationFee(e.target.value)}
+          />
+        </label>
+        <label className="block space-y-1">
+          <span className="text-sm font-semibold">Premiación</span>
+          <textarea
+            className="field min-h-20"
+            placeholder="Ej. 1° $400.000 · 2° $200.000 · Goleador medalla."
+            value={prizes}
+            onChange={(e) => setPrizes(e.target.value)}
+          />
         </label>
         <button className="btn btn-dark" disabled={pending} type="submit">
-          Guardar nombre
+          Guardar
         </button>
       </form>
 
       <form
         className="card space-y-3 p-4"
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
+          const teamName = newTeam.trim();
+          const ok = await ask({
+            title: "Agregar equipo",
+            message: `¿Agregar a ${teamName || "este equipo"}?\nSe le programarán partidos contra los rivales.`,
+            confirmLabel: "Agregar",
+          });
+          if (!ok) return;
           run(async () => {
             const result = await addTeamAction({
               tournamentId,
@@ -136,20 +211,26 @@ export function RosterEditor({
             team={team}
             pending={pending}
             onRename={(value) => run(() => renameTeamAction(team.id, value))}
-            onDelete={() => {
-              if (
-                !confirm(
-                  `¿Eliminar a ${team.name}? Se borrarán sus partidos, incluidos los que ya tengan resultado.`,
-                )
-              ) {
-                return;
-              }
+            onDelete={async () => {
+              const ok = await ask({
+                title: "Eliminar equipo",
+                message: `¿Eliminar a ${team.name}?\nSe borrarán sus partidos, incluidos los que ya tengan resultado.`,
+                confirmLabel: "Eliminar",
+                danger: true,
+              });
+              if (!ok) return;
               run(() => deleteTeamAction(team.id));
             }}
-            onAddPlayer={(value, number) => run(() => addPlayerAction(team.id, value, number))}
-            onRenamePlayer={(playerId, value, number) => run(() => updatePlayerAction(playerId, value, number))}
-            onDeletePlayer={(player) => {
-              if (!confirm(`¿Quitar a ${player.name} de ${team.name}?`)) return;
+            onAddPlayer={(value) => run(() => addPlayerAction(team.id, value))}
+            onRenamePlayer={(playerId, value) => run(() => updatePlayerAction(playerId, value))}
+            onDeletePlayer={async (player) => {
+              const ok = await ask({
+                title: "Quitar jugador",
+                message: `¿Quitar a ${player.name} de ${team.name}?`,
+                confirmLabel: "Quitar",
+                danger: true,
+              });
+              if (!ok) return;
               run(() => deletePlayerAction(player.id));
             }}
           />
@@ -175,13 +256,12 @@ function TeamCard({
   pending: boolean;
   onRename: (name: string) => void;
   onDelete: () => void;
-  onAddPlayer: (name: string, number?: number | null) => void;
-  onRenamePlayer: (playerId: string, name: string, number?: number | null) => void;
+  onAddPlayer: (name: string) => void;
+  onRenamePlayer: (playerId: string, name: string) => void;
   onDeletePlayer: (player: Player) => void;
 }) {
   const [teamName, setTeamName] = useState(team.name);
   const [playerName, setPlayerName] = useState("");
-  const [playerNumber, setPlayerNumber] = useState("");
 
   useEffect(() => {
     setTeamName(team.name);
@@ -211,7 +291,7 @@ function TeamCard({
               key={player.id}
               player={player}
               pending={pending}
-              onRename={(value, number) => onRenamePlayer(player.id, value, number)}
+              onRename={(value) => onRenamePlayer(player.id, value)}
               onDelete={() => onDeletePlayer(player)}
             />
           ))
@@ -219,31 +299,21 @@ function TeamCard({
       </ul>
 
       <form
-        className="flex flex-col gap-2 sm:flex-row"
+        className="flex flex-col gap-2 sm:flex-row sm:items-center"
         onSubmit={(event) => {
           event.preventDefault();
           if (!playerName.trim()) return;
-          onAddPlayer(playerName, playerNumber === "" ? undefined : Number(playerNumber));
+          onAddPlayer(playerName);
           setPlayerName("");
-          setPlayerNumber("");
         }}
       >
         <input
-          className="field w-24"
-          type="number"
-          min={1}
-          max={99}
-          placeholder="#"
-          value={playerNumber}
-          onChange={(e) => setPlayerNumber(e.target.value)}
-        />
-        <input
-          className="field flex-1"
-          placeholder="Nuevo jugador"
+          className="field min-w-0 flex-1"
+          placeholder="Nombre del jugador"
           value={playerName}
           onChange={(e) => setPlayerName(e.target.value)}
         />
-        <button className="btn btn-lime" disabled={pending} type="submit">
+        <button className="btn btn-lime shrink-0" disabled={pending} type="submit">
           Añadir jugador
         </button>
       </form>
@@ -259,38 +329,24 @@ function PlayerRow({
 }: {
   player: Player;
   pending: boolean;
-  onRename: (name: string, number?: number | null) => void;
+  onRename: (name: string) => void;
   onDelete: () => void;
 }) {
   const [name, setName] = useState(player.name);
-  const [number, setNumber] = useState(player.number == null ? "" : String(player.number));
   useEffect(() => {
     setName(player.name);
-    setNumber(player.number == null ? "" : String(player.number));
-  }, [player.name, player.number]);
+  }, [player.name]);
   return (
     <li className="flex flex-col gap-2 sm:flex-row sm:items-center">
-      <input
-        className="field w-24"
-        type="number"
-        min={1}
-        max={99}
-        placeholder="#"
-        value={number}
-        onChange={(e) => setNumber(e.target.value)}
-      />
-      <input className="field flex-1" value={name} onChange={(e) => setName(e.target.value)} />
-      <button
-        type="button"
-        className="btn btn-ghost"
-        disabled={pending}
-        onClick={() => onRename(name, number === "" ? null : Number(number))}
-      >
-        Guardar
-      </button>
-      <button type="button" className="btn btn-ghost text-red-400" disabled={pending} onClick={onDelete}>
-        Quitar
-      </button>
+      <input className="field min-w-0 flex-1" value={name} onChange={(e) => setName(e.target.value)} />
+      <div className="flex shrink-0 gap-2">
+        <button type="button" className="btn btn-ghost" disabled={pending} onClick={() => onRename(name)}>
+          Guardar
+        </button>
+        <button type="button" className="btn btn-ghost text-red-400" disabled={pending} onClick={onDelete}>
+          Quitar
+        </button>
+      </div>
     </li>
   );
 }

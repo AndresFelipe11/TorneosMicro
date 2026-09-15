@@ -90,7 +90,7 @@ function GoalList({
   goals,
 }: {
   title: string;
-  goals: { id: string; minute: number | null; player: { name: string; number: number | null } }[];
+  goals: { id: string; player: { name: string; number: number | null } }[];
 }) {
   return (
     <section className="card p-4">
@@ -100,10 +100,7 @@ function GoalList({
       ) : (
         <ul className="mt-2 space-y-1 text-sm">
           {goals.map((goal) => (
-            <li key={goal.id}>
-              {playerLabel(goal.player.name, goal.player.number)}
-              {goal.minute != null ? ` · ${goal.minute}'` : ""}
-            </li>
+            <li key={goal.id}>{playerLabel(goal.player.name, goal.player.number)}</li>
           ))}
         </ul>
       )}
@@ -119,7 +116,6 @@ function CardList({
   cards: {
     id: string;
     type: "YELLOW" | "RED";
-    minute: number | null;
     paid: boolean;
     player: { name: string; number: number | null };
   }[];
@@ -134,7 +130,6 @@ function CardList({
           {cards.map((card) => (
             <li key={card.id}>
               {cardLabel(card.type)} · {playerLabel(card.player.name, card.player.number)}
-              {card.minute != null ? ` · ${card.minute}'` : ""}
               {card.type === "YELLOW" ? (card.paid ? " · Pagada" : " · Sin pagar") : ""}
             </li>
           ))}

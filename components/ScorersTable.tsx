@@ -1,7 +1,15 @@
 import { playerLabel } from "@/lib/format";
 import type { ScorerRow } from "@/lib/tournament/types";
 
-export function ScorersTable({ rows }: { rows: ScorerRow[] }) {
+export function ScorersTable({
+  rows,
+  highlightTeamIds = [],
+  highlightPlayerIds = [],
+}: {
+  rows: ScorerRow[];
+  highlightTeamIds?: string[];
+  highlightPlayerIds?: string[];
+}) {
   if (rows.length === 0) {
     return <p className="text-muted">Todavía no hay goles registrados.</p>;
   }
@@ -19,14 +27,18 @@ export function ScorersTable({ rows }: { rows: ScorerRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
-              <tr key={row.playerId}>
+            {rows.map((row, index) => {
+              const highlighted =
+                highlightPlayerIds.includes(row.playerId) || highlightTeamIds.includes(row.teamId);
+              return (
+              <tr key={row.playerId} className={highlighted ? "bg-lime/30 ring-2 ring-inset ring-lime" : undefined}>
                 <td className="font-bold">{index + 1}</td>
                 <td className="font-semibold">{playerLabel(row.playerName, row.playerNumber)}</td>
                 <td>{row.teamName}</td>
                 <td className="display text-2xl text-lime">{row.goals}</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

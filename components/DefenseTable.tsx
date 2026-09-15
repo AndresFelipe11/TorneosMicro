@@ -1,6 +1,12 @@
 import type { DefenseRow } from "@/lib/tournament/types";
 
-export function DefenseTable({ rows }: { rows: DefenseRow[] }) {
+export function DefenseTable({
+  rows,
+  highlightTeamIds = [],
+}: {
+  rows: DefenseRow[];
+  highlightTeamIds?: string[];
+}) {
   if (rows.length === 0) {
     return <p className="text-muted">Todavía no hay equipos para calcular la valla.</p>;
   }
@@ -15,21 +21,34 @@ export function DefenseTable({ rows }: { rows: DefenseRow[] }) {
               <th>Equipo</th>
               <th>PJ</th>
               <th>GC</th>
-              <th>VI</th>
               <th>Prom.</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, index) => (
-              <tr key={row.teamId} className={index === 0 && row.played > 0 ? "bg-lime/10" : undefined}>
+            {rows.map((row, index) => {
+              const highlighted = highlightTeamIds.includes(row.teamId);
+              return (
+              <tr
+                key={row.teamId}
+                className={
+                  highlighted
+                    ? "bg-lime/30 ring-2 ring-inset ring-lime"
+                    : index === 0 && row.played > 0
+                      ? "bg-lime/10"
+                      : undefined
+                }
+              >
                 <td className="font-bold">{index + 1}</td>
-                <td className="font-semibold">{row.teamName}</td>
+                <td className="font-semibold">
+                  {row.teamName}
+                  {highlighted ? <span className="ml-2 text-xs font-bold uppercase tracking-wide text-lime">Tu equipo</span> : null}
+                </td>
                 <td>{row.played}</td>
                 <td className="display text-2xl text-lime">{row.ga}</td>
-                <td>{row.cleanSheets}</td>
                 <td>{row.played === 0 ? "—" : row.average.toFixed(2)}</td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
       </div>

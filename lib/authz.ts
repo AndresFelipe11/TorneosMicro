@@ -9,7 +9,9 @@ export type AdminUser = {
   email: string;
   name: string;
   role: UserRole;
+  whatsapp: string | null;
   tournamentIds: string[];
+  scorekeeperTournamentIds: string[];
 };
 
 export const getAdminUser = cache(async (): Promise<AdminUser | null> => {
@@ -23,7 +25,9 @@ export const getAdminUser = cache(async (): Promise<AdminUser | null> => {
       email: true,
       name: true,
       role: true,
+      whatsapp: true,
       tournaments: { select: { tournamentId: true } },
+      scorekeeperFor: { select: { tournamentId: true } },
     },
   });
   if (!user) return null;
@@ -33,7 +37,9 @@ export const getAdminUser = cache(async (): Promise<AdminUser | null> => {
     email: user.email,
     name: user.name,
     role: user.role,
+    whatsapp: user.whatsapp,
     tournamentIds: user.tournaments.map((item) => item.tournamentId),
+    scorekeeperTournamentIds: user.scorekeeperFor.map((item) => item.tournamentId),
   };
 });
 
@@ -41,8 +47,20 @@ export function isGlobalAdmin(user: AdminUser) {
   return user.role === "GLOBAL_ADMIN";
 }
 
+export function isScorekeeper(user: AdminUser) {
+  return user.role === "SCOREKEEPER";
+}
+
 export function canManageTournament(user: AdminUser, tournamentId: string) {
   return isGlobalAdmin(user) || user.tournamentIds.includes(tournamentId);
+}
+
+export function canEditMatchResults(user: AdminUser, tournamentId: string) {
+  return canManageTournament(user, tournamentId) || user.scorekeeperTournamentIds.includes(tournamentId);
+}
+
+export function canAccessTournament(user: AdminUser, tournamentId: string) {
+  return canEditMatchResults(user, tournamentId);
 }
 
 export async function requireAnyAdmin() {
@@ -58,6 +76,12 @@ export async function requireGlobalAdmin() {
 }
 
 export async function requireTournamentPage(tournamentId: string) {
+  const user = await requireAnyAdmin();
+  if (!canAccessTournament(user, tournamentId)) notFound();
+  return user;
+}
+
+export async function requireTournamentManagePage(tournamentId: string) {
   const user = await requireAnyAdmin();
   if (!canManageTournament(user, tournamentId)) notFound();
   return user;
@@ -85,9 +109,19 @@ export async function requireTournamentMutation(tournamentId: string) {
   return { ok: true as const, user };
 }
 
+export async function requireMatchResultMutation(tournamentId: string) {
+  const user = await getAdminUser();
+  if (!user) return { ok: false as const, error: "Debes iniciar sesión." };
+  if (!canEditMatchResults(user, tournamentId)) {
+    return { ok: false as const, error: "No tienes permiso para cargar resultados de este torneo." };
+  }
+  return { ok: true as const, user };
+}
+
 export async function getAdminTournaments(user: AdminUser) {
+  const assignedIds = [...new Set([...user.tournamentIds, ...user.scorekeeperTournamentIds])];
   return prisma.tournament.findMany({
-    where: isGlobalAdmin(user) ? undefined : { id: { in: user.tournamentIds } },
+    where: isGlobalAdmin(user) ? undefined : { id: { in: assignedIds } },
     orderBy: { startDate: "desc" },
     include: {
       _count: { select: { teams: true, matches: true } },

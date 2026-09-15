@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireAnyAdmin, isGlobalAdmin } from "@/lib/authz";
+import { requireAnyAdmin, isGlobalAdmin, isScorekeeper } from "@/lib/authz";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const admin = await requireAnyAdmin();
@@ -21,7 +21,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
               </Link>
             </>
           ) : (
-            <span className="text-muted">Admin de torneo</span>
+            <span className="text-muted">{isScorekeeper(admin) ? "Planillero" : "Admin de torneo"}</span>
           )}
         </div>
       </div>

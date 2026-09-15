@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { KnockoutRound, MatchPhase, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { requireGlobalMutation, requireTournamentMutation } from "@/lib/authz";
+import { canManageTournament, requireGlobalMutation, requireMatchResultMutation, requireTournamentMutation } from "@/lib/authz";
 import { dayKey, fromBogotaDateTimeLocal, parseLocalDate, scheduleFromDate, toBogotaDateString } from "@/lib/tournament/dates";
 import { generateRoundRobin } from "@/lib/tournament/roundRobin";
 import { scheduleMatches } from "@/lib/tournament/schedule";
@@ -13,7 +13,7 @@ import { validateConfig, withDistributedGroups } from "@/lib/tournament/generate
 import type { GeneratedMatch, TournamentConfig, UnscheduledMatch } from "@/lib/tournament/types";
 import { getTournament, standingsFor } from "@/lib/queries";
 import { readScoresheetFile } from "@/lib/scoresheet";
-import { isClosedMatch, venueOrNull, WALKOVER_GOALS } from "@/lib/tournament/match";
+import { isClosedMatch, venueOrNull, WALKOVER_GOALS, hasTournamentStarted } from "@/lib/tournament/match";
 
 function revalidateTournament(id: string) {
   revalidatePath("/");
@@ -55,6 +55,9 @@ export async function createTournamentAction(input: {
         matchDurationMinutes: config.matchDurationMinutes,
         startTime: config.startTime,
         venue: venueOrNull(config.venue),
+        description: venueOrNull(config.description),
+        registrationFee: venueOrNull(config.registrationFee),
+        prizes: venueOrNull(config.prizes),
       },
     });
 
@@ -205,6 +208,7 @@ export async function updateTournamentScheduleAction(input: {
   const config = scheduleConfigFrom(input);
   if ("error" in config) return { error: config.error };
 
+  const started = hasTournamentStarted(tournament);
   const pending = tournament.matches.filter((match) => match.status === "SCHEDULED");
   const occupied = tournament.matches
     .filter((match) => isClosedMatch(match.status))
@@ -214,15 +218,17 @@ export async function updateTournamentScheduleAction(input: {
       scheduledAt: match.scheduledAt,
     }));
 
-  const unscheduled: UnscheduledMatch[] = pending.map((match) => ({
-    id: match.id,
-    homeTeamName: match.homeTeam.name,
-    awayTeamName: match.awayTeam.name,
-    phase: match.phase,
-    round: match.round,
-    groupName: match.group?.name,
-    knockoutRound: match.knockoutRound ?? undefined,
-  }));
+  const unscheduled: UnscheduledMatch[] = started
+    ? []
+    : pending.map((match) => ({
+        id: match.id,
+        homeTeamName: match.homeTeam.name,
+        awayTeamName: match.awayTeam.name,
+        phase: match.phase,
+        round: match.round,
+        groupName: match.group?.name,
+        knockoutRound: match.knockoutRound ?? undefined,
+      }));
 
   const scheduled =
     unscheduled.length === 0
@@ -275,10 +281,11 @@ export async function updateTournamentScheduleAction(input: {
   return {
     ok: true,
     moved: scheduled.matches.length,
-    message:
-      scheduled.matches.length === 0
+    message: started
+      ? "Se guardaron los días de juego. El torneo ya inició, así que los partidos no se movieron. Reprograma cada uno a mano si hace falta."
+      : scheduled.matches.length === 0
         ? "Se actualizaron los días de juego. No había partidos pendientes por mover."
-        : `Se reprogramaron ${scheduled.matches.length} partidos pendientes.`,
+        : `Se reprogramaron ${scheduled.matches.length} partidos pendientes, incluida esa misma semana.`,
   };
 }
 
@@ -373,8 +380,9 @@ export async function saveMatchResultAction(input: {
     include: { tournament: true },
   });
   if (!match) return { error: "Partido no encontrado." };
-  const access = await requireTournamentMutation(match.tournamentId);
+  const access = await requireMatchResultMutation(match.tournamentId);
   if (!access.ok) return { error: access.error };
+  const canSchedule = canManageTournament(access.user, match.tournamentId);
 
   const outcome = input.outcome ?? "PLAYED";
   let homeScore = input.homeScore ?? 0;
@@ -415,6 +423,17 @@ export async function saveMatchResultAction(input: {
     }
   }
 
+  if (outcome === "PLAYED") {
+    const homeGoalCount = goals.filter((goal) => goal.teamId === match.homeTeamId).length;
+    const awayGoalCount = goals.filter((goal) => goal.teamId === match.awayTeamId).length;
+    if (homeGoalCount > homeScore) {
+      return { error: "Los goles del local no pueden ser más que su marcador." };
+    }
+    if (awayGoalCount > awayScore) {
+      return { error: "Los goles del visitante no pueden ser más que su marcador." };
+    }
+  }
+
   const photo = await readScoresheetFile(input.scoresheet);
   if (photo && "error" in photo) return { error: photo.error };
 
@@ -443,8 +462,8 @@ export async function saveMatchResultAction(input: {
           awayPenalties,
           winnerId,
           status: outcome,
-          venue: input.venue !== undefined ? venueOrNull(input.venue) : match.venue,
-          scheduledAt: input.scheduledAt ? new Date(input.scheduledAt) : match.scheduledAt,
+          venue: canSchedule && input.venue !== undefined ? venueOrNull(input.venue) : match.venue,
+          scheduledAt: canSchedule && input.scheduledAt ? new Date(input.scheduledAt) : match.scheduledAt,
           goals: {
             create: goalPlayers.players.map((goal) => ({
               playerId: goal.playerId,
@@ -461,6 +480,20 @@ export async function saveMatchResultAction(input: {
               paid: cards[index]?.type === "YELLOW" ? Boolean(cards[index]?.paid) : false,
             })),
           },
+        },
+      });
+
+      await tx.matchResultLog.create({
+        data: {
+          matchId: match.id,
+          userId: access.user.id,
+          userName: access.user.name,
+          action: "SAVED",
+          homeScore,
+          awayScore,
+          homePenalties,
+          awayPenalties,
+          status: outcome,
         },
       });
 
@@ -510,7 +543,7 @@ export async function setCardsPaidAction(cardIds: string[], paid: boolean) {
   if (cards.some((card) => card.match.tournamentId !== tournamentId)) {
     return { error: "Las tarjetas no pertenecen al mismo torneo." };
   }
-  const access = await requireTournamentMutation(tournamentId);
+  const access = await requireMatchResultMutation(tournamentId);
   if (!access.ok) return { error: access.error };
 
   const yellowIds = cards.filter((card) => card.type === "YELLOW").map((card) => card.id);
@@ -535,7 +568,7 @@ export async function resetMatchResultAction(matchId: string) {
     include: { tournament: true },
   });
   if (!match) return { error: "Partido no encontrado." };
-  const access = await requireTournamentMutation(match.tournamentId);
+  const access = await requireMatchResultMutation(match.tournamentId);
   if (!access.ok) return { error: access.error };
   if (!isClosedMatch(match.status)) return { error: "Ese partido todavía no tiene resultado." };
 
@@ -551,6 +584,15 @@ export async function resetMatchResultAction(matchId: string) {
         homePenalties: null,
         awayPenalties: null,
         winnerId: null,
+      },
+    });
+    await tx.matchResultLog.create({
+      data: {
+        matchId: match.id,
+        userId: access.user.id,
+        userName: access.user.name,
+        action: "RESET",
+        status: "SCHEDULED",
       },
     });
   });
@@ -580,15 +622,6 @@ async function resolveGoalPlayers(
   const allowed = new Set(teamIds);
   const resolved: { playerId: string; teamId: string; minute: number | null }[] = [];
   const cache = new Map<string, string>();
-  const nextNumber = new Map<string, number>();
-
-  for (const teamId of teamIds) {
-    const last = await tx.player.aggregate({
-      where: { teamId },
-      _max: { number: true },
-    });
-    nextNumber.set(teamId, (last._max.number ?? 0) + 1);
-  }
 
   for (const goal of goals) {
     if (!allowed.has(goal.teamId)) {
@@ -629,11 +662,9 @@ async function resolveGoalPlayers(
       continue;
     }
 
-    const number = nextNumber.get(goal.teamId) ?? 1;
     const created = await tx.player.create({
-      data: { name, number, teamId: goal.teamId },
+      data: { name, teamId: goal.teamId },
     });
-    nextNumber.set(goal.teamId, number + 1);
     cache.set(cacheKey, created.id);
     resolved.push({ playerId: created.id, teamId: goal.teamId, minute: goal.minute ?? null });
   }

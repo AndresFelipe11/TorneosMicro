@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Barlow_Condensed, Figtree } from "next/font/google";
 import "./globals.css";
+import { ConfirmProvider } from "@/components/ConfirmDialog";
 import { Header } from "@/components/Header";
 
 const figtree = Figtree({
@@ -23,8 +24,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es" className={`${figtree.variable} ${barlow.variable} h-full dark`}>
       <body className="min-h-full flex flex-col antialiased">
-        <Header />
-        <main className="flex-1">{children}</main>
+        <ConfirmProvider>
+          <Header />
+          <main className="flex-1">{children}</main>
+        </ConfirmProvider>
       </body>
     </html>
   );

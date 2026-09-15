@@ -71,6 +71,9 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
       ["Días de juego", playingDaysLabel(tournament.playingDays)],
       ["Hora de inicio", tournament.startTime],
       ["Cancha / sede", tournament.venue ?? "—"],
+      ["Descripción", tournament.description ?? "—"],
+      ["Valor de la inscripción", tournament.registrationFee ?? "—"],
+      ["Premiación", tournament.prizes ?? "—"],
       ["Partidos por día", tournament.maxMatchesPerDay],
       ["Duración (min)", tournament.matchDurationMinutes],
       ["Siguiente fase", tournament.format === "GROUPS" ? nextPhaseLabel(tournament.nextPhase) : "—"],
@@ -89,9 +92,9 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
   addSheet(
     workbook,
     "Jugadores",
-    ["Equipo", "Grupo", "Número", "Jugador"],
+    ["Equipo", "Grupo", "Jugador"],
     tournament.teams.flatMap((team) =>
-      team.players.map((player) => [team.name, team.group?.name ?? "—", player.number ?? "", player.name]),
+      team.players.map((player) => [team.name, team.group?.name ?? "—", player.name]),
     ),
   );
 
@@ -120,7 +123,7 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
   addSheet(
     workbook,
     "Goles",
-    ["Fecha", "Local", "Visitante", "Jugador", "Equipo", "Minuto"],
+    ["Fecha", "Local", "Visitante", "Jugador", "Equipo"],
     tournament.matches.flatMap((match) =>
       match.goals.map((goal) => [
         formatDateTime(match.scheduledAt),
@@ -128,7 +131,6 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
         match.awayTeam.name,
         playerLabel(goal.player.name, goal.player.number),
         tournament.teams.find((team) => team.id === goal.teamId)?.name ?? "",
-        goal.minute ?? "",
       ]),
     ),
   );
@@ -173,13 +175,12 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
   addSheet(
     workbook,
     "Valla",
-    ["Pos", "Equipo", "PJ", "GC", "Valla invicta", "Promedio GC"],
+    ["Pos", "Equipo", "PJ", "GC", "Promedio GC"],
     defenseFor(tournament).map((row, index) => [
       index + 1,
       row.teamName,
       row.played,
       row.ga,
-      row.cleanSheets,
       row.average,
     ]),
   );
@@ -187,7 +188,7 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
   addSheet(
     workbook,
     "Tarjetas",
-    ["Fecha", "Local", "Visitante", "Jugador", "Equipo", "Tipo", "Minuto", "Pago"],
+    ["Fecha", "Local", "Visitante", "Jugador", "Equipo", "Tipo", "Pago"],
     tournament.matches.flatMap((match) =>
       match.cards.map((card) => [
         formatDateTime(match.scheduledAt),
@@ -196,7 +197,6 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
         playerLabel(card.player.name, card.player.number),
         tournament.teams.find((team) => team.id === card.teamId)?.name ?? "",
         cardLabel(card.type),
-        card.minute ?? "",
         card.type === "YELLOW" ? (card.paid ? "Pagada" : "Sin pagar") : "",
       ]),
     ),

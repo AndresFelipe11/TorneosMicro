@@ -47,7 +47,13 @@ export default async function HomePage() {
                 <p className="mt-1 text-sm">
                   {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)}
                 </p>
+                {tournament.registrationFee?.trim() ? (
+                  <p className="mt-2 text-sm">Inscripción: {tournament.registrationFee}</p>
+                ) : null}
                 <p className="mt-3 text-sm font-bold text-lime">{statusLabel(tournament.status)}</p>
+                {tournament.registrationOpen && tournament.status !== "FINISHED" ? (
+                  <p className="mt-2 text-sm font-bold text-lime">Inscripciones abiertas</p>
+                ) : null}
               </Link>
             ))}
           </div>

@@ -22,6 +22,9 @@ export type TournamentConfig = {
   matchDurationMinutes: number;
   startTime: string;
   venue?: string;
+  description?: string;
+  registrationFee?: string;
+  prizes?: string;
   teams: TeamInput[];
 };
 

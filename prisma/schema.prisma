@@ -55,16 +55,31 @@ enum KnockoutRound {
 enum UserRole {
   GLOBAL_ADMIN
   TOURNAMENT_ADMIN
+  SCOREKEEPER
+}
+
+enum MatchResultLogAction {
+  SAVED
+  RESET
+}
+
+enum RegistrationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
 }
 
 model User {
-  id           String            @id @default(cuid())
-  email        String            @unique
-  name         String
-  passwordHash String
-  role         UserRole          @default(TOURNAMENT_ADMIN)
-  createdAt    DateTime          @default(now())
-  tournaments  TournamentAdmin[]
+  id                String                  @id @default(cuid())
+  email             String                  @unique
+  name              String
+  passwordHash      String
+  role              UserRole                @default(TOURNAMENT_ADMIN)
+  whatsapp          String?
+  createdAt         DateTime                @default(now())
+  tournaments       TournamentAdmin[]
+  scorekeeperFor    TournamentScorekeeper[]
+  resultLogs        MatchResultLog[]
 }
 
 model Tournament {
@@ -82,12 +97,18 @@ model Tournament {
   matchDurationMinutes Int              @default(40)
   startTime            String           @default("09:00")
   venue                String?
+  description          String?
+  registrationFee      String?
+  prizes               String?
+  registrationOpen     Boolean          @default(false)
   createdAt            DateTime         @default(now())
   updatedAt            DateTime         @updatedAt
   teams                Team[]
   groups               Group[]
   matches              Match[]
   admins               TournamentAdmin[]
+  scorekeepers         TournamentScorekeeper[]
+  registrations        TeamRegistration[]
 }
 
 model TournamentAdmin {
@@ -99,6 +120,30 @@ model TournamentAdmin {
 
   @@id([userId, tournamentId])
   @@index([tournamentId])
+}
+
+model TournamentScorekeeper {
+  userId       String
+  tournamentId String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tournament   Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  createdAt    DateTime   @default(now())
+
+  @@id([userId, tournamentId])
+  @@index([tournamentId])
+}
+
+model TeamRegistration {
+  id           String             @id @default(cuid())
+  tournamentId String
+  tournament   Tournament         @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  name         String
+  players      String[]
+  groupId      String?
+  status       RegistrationStatus @default(PENDING)
+  createdAt    DateTime           @default(now())
+
+  @@index([tournamentId, status])
 }
 
 model Team {
@@ -161,9 +206,29 @@ model Match {
   goals         Goal[]
   cards         MatchCard[]
   scoresheet    MatchScoresheet?
+  resultLogs    MatchResultLog[]
 
   @@index([tournamentId, scheduledAt])
   @@index([tournamentId, phase])
+}
+
+model MatchResultLog {
+  id            String               @id @default(cuid())
+  matchId       String
+  match         Match                @relation(fields: [matchId], references: [id], onDelete: Cascade)
+  userId        String?
+  user          User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  userName      String
+  action        MatchResultLogAction
+  homeScore     Int?
+  awayScore     Int?
+  homePenalties Int?
+  awayPenalties Int?
+  status        MatchStatus?
+  createdAt     DateTime             @default(now())
+
+  @@index([matchId, createdAt])
+  @@index([userId])
 }
 
 model MatchScoresheet {

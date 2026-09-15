@@ -42,8 +42,8 @@ export function TournamentAdminsPanel({
       <div>
         <h2 className="display text-2xl">Admins de este torneo</h2>
         <p className="text-sm text-muted">
-          Elige quién puede cargar resultados, editar equipos y reprogramar partidos. El admin global
-          siempre tiene acceso.
+          Elige quién puede editar equipos, calendario e inscripciones. Los planilleros se asignan
+          aparte. El admin global siempre tiene acceso.
         </p>
       </div>
       {candidates.length === 0 ? (
