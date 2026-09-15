@@ -31,6 +31,7 @@
 html {
   scroll-behavior: smooth;
   color-scheme: dark;
+  overflow-x: clip;
 }
 
 body {
@@ -39,6 +40,20 @@ body {
   background: var(--bg);
   color: var(--ink);
   font-family: var(--font-sans), system-ui, sans-serif;
+  overflow-x: clip;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+h1,
+h2,
+h3 {
+  overflow-wrap: break-word;
+}
+
+img,
+svg,
+video {
+  max-width: 100%;
 }
 
 .pitch-bg {
@@ -106,10 +121,19 @@ textarea {
 
 .field {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: 1px solid rgba(232, 237, 247, 0.14);
   background: #0d1220;
   border-radius: 0.85rem;
   padding: 0.7rem 0.85rem;
+}
+
+input[type="date"],
+input[type="datetime-local"],
+input[type="file"] {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .field:focus {
@@ -146,4 +170,20 @@ th {
 td {
   padding: 0.75rem 0.8rem;
   border-top: 1px solid rgba(232, 237, 247, 0.06);
+}
+
+@media (max-width: 639px) {
+  .btn {
+    padding: 0.65rem 0.95rem;
+  }
+
+  th,
+  td {
+    padding: 0.55rem 0.55rem;
+  }
+
+  h1.display {
+    font-size: clamp(1.7rem, 8vw, 2.25rem);
+    line-height: 1.1;
+  }
 }

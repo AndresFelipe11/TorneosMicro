@@ -1,3 +1,5 @@
+import { formatDateTime } from "@/lib/format";
+
 export function ScoresheetEvidence({
   matchId,
   uploadedAt,
@@ -7,13 +9,7 @@ export function ScoresheetEvidence({
   uploadedAt?: Date | string | null;
   fileName?: string | null;
 }) {
-  const when = uploadedAt
-    ? new Intl.DateTimeFormat("es-CO", {
-        dateStyle: "medium",
-        timeStyle: "short",
-        timeZone: "America/Bogota",
-      }).format(typeof uploadedAt === "string" ? new Date(uploadedAt) : uploadedAt)
-    : null;
+  const when = uploadedAt ? formatDateTime(uploadedAt) : null;
 
   return (
     <section className="card overflow-hidden p-4">

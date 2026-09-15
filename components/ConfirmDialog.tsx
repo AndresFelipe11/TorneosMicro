@@ -64,13 +64,13 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
             <p id="confirm-message" className="whitespace-pre-line text-sm leading-6 text-cream/90">
               {pending.message}
             </p>
-            <div className="flex flex-wrap justify-end gap-2">
-              <button type="button" className="btn btn-ghost" onClick={() => close(false)}>
+            <div className="flex flex-col-reverse gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <button type="button" className="btn btn-ghost w-full sm:w-auto" onClick={() => close(false)}>
                 {pending.cancelLabel ?? "Cancelar"}
               </button>
               <button
                 type="button"
-                className={pending.danger ? "btn bg-red-500 text-white" : "btn btn-lime"}
+                className={`${pending.danger ? "btn bg-red-500 text-white" : "btn btn-lime"} w-full sm:w-auto`}
                 autoFocus
                 onClick={() => close(true)}
               >

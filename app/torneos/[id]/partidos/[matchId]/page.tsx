@@ -40,18 +40,19 @@ export default async function MatchPage({
         {match.knockoutRound ? ` · ${knockoutLabel(match.knockoutRound)}` : ""}
         {venue ? ` · ${venue}` : ""}
       </p>
-      <div className="card mt-3 p-6 text-center">
+      <div className="card mt-3 p-5 text-center sm:p-6">
         <StatusBadge status={match.status} />
-        <h1 className="display mt-4 text-4xl">
-          {match.homeTeam.name}{" "}
-          <span className="text-lime">
+        <h1 className="display mt-4">
+          <span className="block sm:inline">{match.homeTeam.name}</span>
+          <span className="my-1 block text-lime sm:my-0 sm:inline">
+            {" "}
             {scoreLabel(match.homeScore, match.awayScore, {
               homePenalties: match.homePenalties,
               awayPenalties: match.awayPenalties,
               walkover: match.status === "WALKOVER",
-            })}
-          </span>{" "}
-          {match.awayTeam.name}
+            })}{" "}
+          </span>
+          <span className="block sm:inline">{match.awayTeam.name}</span>
         </h1>
         {match.status === "WALKOVER" ? (
           <p className="mt-2 text-sm text-muted">El partido se dio por ganado 3-0 (W.O.).</p>

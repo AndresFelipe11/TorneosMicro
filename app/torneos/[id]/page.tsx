@@ -51,7 +51,7 @@ export default async function TournamentPage({
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
           <p className="text-sm font-bold uppercase tracking-widest text-muted">{formatLabel(tournament.format)}</p>
-          <h1 className="display text-4xl">{tournament.name}</h1>
+          <h1 className="display text-3xl sm:text-4xl">{tournament.name}</h1>
           <p className="text-muted">
           {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)} · Juega{" "}
           {playingDaysLabel(tournament.playingDays)}
@@ -75,12 +75,12 @@ export default async function TournamentPage({
         editHref={canEditInfo ? `/admin/torneos/${id}/datos` : undefined}
       />
       {tournament.registrationOpen && tournament.status !== "FINISHED" ? (
-        <div className="card mb-6 flex flex-wrap items-center justify-between gap-3 p-5">
+        <div className="card mb-6 flex flex-col gap-3 p-5 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
           <div>
             <p className="display text-xl">Inscripciones abiertas</p>
             <p className="text-sm text-muted">Puedes añadir tu equipo.</p>
           </div>
-          <Link href={`/torneos/${id}/inscribirme`} className="btn btn-lime">
+          <Link href={`/torneos/${id}/inscribirme`} className="btn btn-lime w-full sm:w-auto">
             Inscribirme
           </Link>
         </div>

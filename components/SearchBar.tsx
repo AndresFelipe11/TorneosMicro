@@ -19,7 +19,7 @@ function tournamentSearchTarget(pathname: string) {
   return null;
 }
 
-export function SearchBar({ compact = false }: { compact?: boolean }) {
+export function SearchBar() {
   const pathname = usePathname();
   const router = useRouter();
   const params = useSearchParams();
@@ -67,16 +67,16 @@ export function SearchBar({ compact = false }: { compact?: boolean }) {
   }, []);
 
   return (
-    <form onSubmit={onSubmit} className={compact ? "flex min-w-0 flex-1 gap-2" : "flex w-full gap-2"}>
+    <form onSubmit={onSubmit} className="flex w-full min-w-0 gap-2">
       <input
         className="field min-w-0 flex-1"
         value={value}
         name="q"
-        placeholder={inTournament ? "Filtra por equipo o jugador" : "Busca equipo o jugador"}
+        placeholder={inTournament ? "Filtra equipo o jugador" : "Busca equipo o jugador"}
         type="search"
         onChange={(event) => onChange(event.target.value)}
       />
-      <button className="btn btn-lime shrink-0 px-4" type="submit">
+      <button className="btn btn-lime shrink-0 px-3 sm:px-4" type="submit">
         Buscar
       </button>
     </form>

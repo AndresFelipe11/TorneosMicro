@@ -10,10 +10,10 @@ export function AdvanceButton({ tournamentId }: { tournamentId: string }) {
   const ask = useAskConfirm();
 
   return (
-    <div className="space-y-2">
+    <div className="w-full space-y-2 sm:w-auto">
       <button
         type="button"
-        className="btn btn-lime"
+        className="btn btn-lime w-full sm:w-auto"
         disabled={pending}
         onClick={async () => {
           const ok = await ask({
@@ -42,7 +42,7 @@ export function FinishButton({ tournamentId }: { tournamentId: string }) {
   return (
     <button
       type="button"
-      className="btn btn-dark"
+      className="btn btn-dark w-full sm:w-auto"
       disabled={pending}
       onClick={async () => {
         const ok = await ask({
@@ -66,7 +66,7 @@ export function DeleteTournamentButton({ tournamentId }: { tournamentId: string 
   return (
     <button
       type="button"
-      className="btn btn-ghost text-red-400"
+      className="btn btn-ghost w-full text-red-400 sm:w-auto"
       disabled={pending}
       onClick={async () => {
         const ok = await ask({

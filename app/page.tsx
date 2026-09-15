@@ -9,9 +9,9 @@ export default async function HomePage() {
   return (
     <div>
       <section className="pitch-bg text-cream">
-        <div className="mx-auto max-w-6xl px-4 py-16">
+        <div className="mx-auto max-w-6xl px-4 py-10 sm:py-16">
           <p className="text-lime font-bold tracking-[0.2em] uppercase text-xs">Microfútbol</p>
-          <h1 className="display mt-3 max-w-3xl text-5xl leading-none sm:text-7xl">
+          <h1 className="display mt-3 max-w-3xl text-4xl leading-none sm:text-7xl">
             Programa el torneo. Juega las fechas. Mira la tabla.
           </h1>
           <p className="mt-5 max-w-2xl text-lg text-cream/80">
@@ -22,9 +22,9 @@ export default async function HomePage() {
       </section>
 
       <section className="mx-auto max-w-6xl px-4 py-12">
-        <div className="mb-6 flex items-end justify-between gap-4">
+        <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
           <h2 className="display text-3xl">Torneos</h2>
-          <Link href="/admin/torneos/nuevo" className="btn btn-dark">
+          <Link href="/admin/torneos/nuevo" className="btn btn-dark shrink-0">
             Crear torneo
           </Link>
         </div>
@@ -37,7 +37,7 @@ export default async function HomePage() {
             {tournaments.map((tournament) => (
               <Link key={tournament.id} href={`/torneos/${tournament.id}`} className="card p-5 no-underline text-ink">
                 <div className="flex items-start justify-between gap-3">
-                  <h3 className="display text-2xl">{tournament.name}</h3>
+                  <h3 className="display min-w-0 text-xl leading-tight sm:text-2xl">{tournament.name}</h3>
                   <StatusBadge status={tournament.status} />
                 </div>
                 <p className="mt-2 text-sm text-muted">

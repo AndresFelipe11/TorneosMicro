@@ -1,4 +1,3 @@
-import { weekdayBogota } from "@/lib/tournament/dates";
 import type { KnockoutRound, MatchPhase, NextPhase, TournamentFormat } from "@/lib/tournament/types";
 
 type TournamentStatus = "DRAFT" | "SCHEDULED" | "IN_PROGRESS" | "FINISHED";
@@ -93,6 +92,7 @@ function bogotaClock(value: Date | string) {
     year: shifted.getUTCFullYear(),
     month: shifted.getUTCMonth() + 1,
     day: shifted.getUTCDate(),
+    weekday: shifted.getUTCDay(),
     hours: shifted.getUTCHours(),
     minutes: shifted.getUTCMinutes(),
   };
@@ -105,9 +105,8 @@ function clockLabel(hours: number, minutes: number) {
 }
 
 export function formatDateTime(value: Date | string) {
-  const { isoDate, year, month, day, hours, minutes } = bogotaClock(value);
-  const weekday = dayLabels[weekdayBogota(isoDate)]?.toLowerCase() ?? "";
-  return `${weekday}, ${day} ${MONTHS_SHORT[month - 1]} ${year}, ${clockLabel(hours, minutes)}`;
+  const { year, month, day, weekday, hours, minutes } = bogotaClock(value);
+  return `${dayLabels[weekday]?.toLowerCase() ?? ""}, ${day} ${MONTHS_SHORT[month - 1]} ${year}, ${clockLabel(hours, minutes)}`;
 }
 
 export function formatDate(value: Date | string) {

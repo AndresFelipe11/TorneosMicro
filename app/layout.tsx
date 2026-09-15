@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="es" className={`${figtree.variable} ${barlow.variable} h-full dark`}>
+    <html lang="es" className={`${figtree.variable} ${barlow.variable} h-full dark`} data-scroll-behavior="smooth">
       <body className="min-h-full flex flex-col antialiased">
         <ConfirmProvider>
           <Header />

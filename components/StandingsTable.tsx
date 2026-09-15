@@ -19,8 +19,8 @@ export function StandingsTable({
           <h3 className="display text-xl">{title}</h3>
         </header>
       ) : null}
-      <div className="overflow-x-auto">
-        <table>
+      <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
+        <table className="min-w-[40rem] text-sm">
           <thead>
             <tr>
               <th>#</th>
@@ -44,7 +44,7 @@ export function StandingsTable({
                 className={highlighted ? "bg-lime/30 ring-2 ring-inset ring-lime" : index < 2 ? "bg-lime/10" : undefined}
               >
                 <td className="font-bold">{index + 1}</td>
-                <td className="font-semibold">
+                <td className="whitespace-nowrap font-semibold">
                   {tournamentId ? (
                     <Link className="text-cream no-underline hover:text-lime" href={`/torneos/${tournamentId}/equipos/${row.teamId}`}>
                       {row.teamName}

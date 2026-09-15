@@ -106,11 +106,11 @@ export function RegisterTeamForm({
       {error ? <p className="font-semibold text-red-400">{error}</p> : null}
       {message ? <p className="font-semibold text-lime">{message}</p> : null}
       {whatsappUrl ? (
-        <a className="btn btn-lime" href={whatsappUrl}>
+        <a className="btn btn-lime w-full sm:w-auto" href={whatsappUrl}>
           Abrir WhatsApp
         </a>
       ) : (
-        <button className="btn btn-lime" disabled={pending} type="submit">
+        <button className="btn btn-lime w-full sm:w-auto" disabled={pending} type="submit">
           {pending ? "Enviando..." : "Agregar equipo"}
         </button>
       )}

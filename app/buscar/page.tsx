@@ -21,7 +21,7 @@ export default async function SearchPage({
         <p className="mt-4 text-muted">No encontramos equipos ni jugadores con “{q.trim()}”.</p>
       ) : (
         <p className="mt-4 text-muted">
-          Entra a un torneo y usa la barra de arriba para filtrar un equipo o jugador.
+          Entra a un torneo y usa la barra de búsqueda para filtrar un equipo o jugador.
         </p>
       )}
     </div>

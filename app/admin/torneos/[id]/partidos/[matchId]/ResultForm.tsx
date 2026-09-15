@@ -347,7 +347,7 @@ export function ResultForm({
       <div>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h3 className="display text-xl">Goleadores</h3>
-          <div className="flex gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <button
               type="button"
               className="btn btn-ghost text-sm"
@@ -426,7 +426,7 @@ export function ResultForm({
       <div>
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <h3 className="display text-xl">Tarjetas</h3>
-          <div className="flex gap-2">
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             <button
               type="button"
               className="btn btn-ghost text-sm"
@@ -563,7 +563,7 @@ export function ResultForm({
 
       {error ? <p className="font-semibold text-red-400">{error}</p> : null}
       {message ? <p className="font-semibold text-lime">{message}</p> : null}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <button type="button" className="btn btn-lime" disabled={pending} onClick={submitPlayed}>
           {pending ? "Guardando..." : closed ? "Corregir resultado" : "Guardar resultado"}
         </button>

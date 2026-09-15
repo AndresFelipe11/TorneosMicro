@@ -16,8 +16,8 @@ export function DefenseTable({
 
   return (
     <section className="card overflow-hidden">
-      <div className="overflow-x-auto">
-        <table>
+      <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
+        <table className="min-w-[24rem] text-sm">
           <thead>
             <tr>
               <th>#</th>
@@ -42,7 +42,7 @@ export function DefenseTable({
                 }
               >
                 <td className="font-bold">{index + 1}</td>
-                <td className="font-semibold">
+                <td className="whitespace-nowrap font-semibold">
                   {tournamentId ? (
                     <Link className="text-cream no-underline hover:text-lime" href={`/torneos/${tournamentId}/equipos/${row.teamId}`}>
                       {row.teamName}

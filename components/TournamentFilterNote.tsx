@@ -14,7 +14,7 @@ export function TournamentFilterNote({
   if (!query) return null;
 
   return (
-    <div className="card mb-6 flex flex-wrap items-center justify-between gap-3 p-4">
+    <div className="card mb-6 flex flex-col gap-3 p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
       <p className="text-sm">
         {found ? (
           <>
@@ -27,7 +27,7 @@ export function TournamentFilterNote({
           </>
         )}
       </p>
-      <Link href={path} className="btn btn-dark text-sm" scroll={false}>
+      <Link href={path} className="btn btn-dark w-full text-center text-sm sm:w-auto" scroll={false}>
         Quitar filtro
       </Link>
     </div>

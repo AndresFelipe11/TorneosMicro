@@ -1,8 +1,9 @@
 "use client";
 
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import { SearchBar } from "@/components/SearchBar";
 
 export function TournamentTabs({
   id,
@@ -47,24 +48,33 @@ export function TournamentTabs({
       ];
 
   return (
-    <div className="mb-6 flex flex-wrap gap-2">
-      {tabs.map((tab) => {
-        const active =
-          mounted &&
-          (pathname === tab.href ||
-            (tab.href.endsWith("/equipos") && pathname.startsWith(`${tab.href}/`)));
-        return (
-          <Link
-            key={tab.href}
-            href={`${tab.href}${suffix}`}
-            className={`rounded-full px-4 py-2 text-sm font-bold no-underline ${
-              active ? "bg-lime text-pitch" : "bg-card text-cream"
-            }`}
-          >
-            {tab.label}
-          </Link>
-        );
-      })}
+    <div className="mb-6">
+      <div className="-mx-4 mb-4 overflow-x-auto px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        <div className="flex w-max gap-2">
+          {tabs.map((tab) => {
+            const active =
+              mounted &&
+              (pathname === tab.href ||
+                (tab.href.endsWith("/equipos") && pathname.startsWith(`${tab.href}/`)));
+            return (
+              <Link
+                key={tab.href}
+                href={`${tab.href}${suffix}`}
+                className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold no-underline ${
+                  active ? "bg-lime text-pitch" : "bg-card text-cream"
+                }`}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+      {admin ? null : (
+        <Suspense fallback={<div className="h-11" />}>
+          <SearchBar />
+        </Suspense>
+      )}
     </div>
   );
 }

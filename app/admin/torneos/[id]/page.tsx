@@ -52,7 +52,7 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="display text-4xl">{tournament.name}</h1>
+          <h1 className="display text-3xl sm:text-4xl">{tournament.name}</h1>
           <p className="text-muted">
             {formatLabel(tournament.format)} · {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)}
             {tournament.venue ? ` · ${tournament.venue}` : ""}
@@ -72,14 +72,14 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
         />
       )}
       {manage ? (
-        <div className="mb-6 flex flex-wrap gap-3">
-          <Link href={`/admin/torneos/${id}/calendario`} className="btn btn-lime">
+        <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <Link href={`/admin/torneos/${id}/calendario`} className="btn btn-lime w-full sm:w-auto">
             Editar calendario
           </Link>
-          <Link href={`/admin/torneos/${id}/datos`} className="btn btn-dark">
+          <Link href={`/admin/torneos/${id}/datos`} className="btn btn-dark w-full sm:w-auto">
             Editar datos
           </Link>
-          <Link href={`/admin/torneos/${id}/editar`} className="btn btn-dark">
+          <Link href={`/admin/torneos/${id}/editar`} className="btn btn-dark w-full sm:w-auto">
             Editar equipos
           </Link>
           <ExportExcelButton tournamentId={id} />

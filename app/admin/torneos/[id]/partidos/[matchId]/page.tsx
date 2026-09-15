@@ -30,24 +30,26 @@ export default async function AdminMatchPage({
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-8">
-      <Link href={`/admin/torneos/${id}`} className="text-sm font-bold text-lime">
-        ← Volver al torneo
-      </Link>
-      {canSchedule ? (
-        <>
-          {" · "}
-          <Link href={`/admin/torneos/${id}/calendario`} className="text-sm font-bold text-lime">
+      <div className="flex flex-wrap gap-x-3 gap-y-1 text-sm font-bold">
+        <Link href={`/admin/torneos/${id}`} className="text-lime">
+          ← Volver al torneo
+        </Link>
+        {canSchedule ? (
+          <Link href={`/admin/torneos/${id}/calendario`} className="text-lime">
             Calendario
           </Link>
-        </>
-      ) : null}
+        ) : null}
+      </div>
       <p className="mt-4 text-sm uppercase tracking-wide text-muted">
         {formatDateTime(match.scheduledAt)} · {phaseLabel(match.phase)}
         {match.knockoutRound ? ` · ${knockoutLabel(match.knockoutRound)}` : ` · Jornada ${match.round}`}
         {displayVenue(match.venue, tournament.venue) ? ` · ${displayVenue(match.venue, tournament.venue)}` : ""}
       </p>
-      <h1 className="display mb-5 text-4xl">
-        {match.homeTeam.name} vs {match.awayTeam.name}
+      <h1 className="display mb-5">
+        <span className="block sm:inline">{match.homeTeam.name}</span>
+        <span className="hidden sm:inline"> vs </span>
+        <span className="my-1 block text-muted sm:hidden">vs</span>
+        <span className="block sm:inline">{match.awayTeam.name}</span>
       </h1>
       <div className="space-y-6">
         {canSchedule && match.status === "SCHEDULED" ? (

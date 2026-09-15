@@ -9,8 +9,8 @@ export default async function AdminHomePage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <div className="mb-6 flex items-end justify-between gap-3">
-        <div>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="display text-4xl">Panel</h1>
           <p className="text-muted">
             {isGlobalAdmin(admin)
@@ -21,7 +21,7 @@ export default async function AdminHomePage() {
           </p>
         </div>
         {isGlobalAdmin(admin) ? (
-          <Link href="/admin/torneos/nuevo" className="btn btn-lime">
+          <Link href="/admin/torneos/nuevo" className="btn btn-lime w-full sm:w-auto">
             Nuevo torneo
           </Link>
         ) : null}
@@ -33,8 +33,8 @@ export default async function AdminHomePage() {
             href={`/admin/torneos/${tournament.id}`}
             className="card flex flex-col gap-2 p-5 no-underline text-ink sm:flex-row sm:items-center sm:justify-between"
           >
-            <div>
-              <h2 className="display text-2xl">{tournament.name}</h2>
+            <div className="min-w-0">
+              <h2 className="display text-xl leading-tight sm:text-2xl">{tournament.name}</h2>
               <p className="text-sm text-muted">
                 {formatLabel(tournament.format)} · {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)}
               </p>

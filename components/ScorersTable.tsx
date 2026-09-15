@@ -16,8 +16,8 @@ export function ScorersTable({
 
   return (
     <section className="card overflow-hidden">
-      <div className="overflow-x-auto">
-        <table>
+      <div className="overflow-x-auto [-webkit-overflow-scrolling:touch]">
+        <table className="min-w-[28rem] text-sm">
           <thead>
             <tr>
               <th>#</th>

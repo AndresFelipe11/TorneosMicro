@@ -4,7 +4,7 @@ function InfoBlock({ title, text }: { title: string; text: string }) {
   return (
     <div>
       <h3 className="text-sm font-bold uppercase tracking-wide text-muted">{title}</h3>
-      <p className="mt-1 whitespace-pre-wrap">{text}</p>
+      <p className="mt-1 whitespace-pre-wrap break-words">{text}</p>
     </div>
   );
 }
@@ -39,7 +39,7 @@ export function TournamentInfo({
       ) : null}
       {editHref ? (
         <div className="sm:col-span-2">
-          <Link href={editHref} className="btn btn-dark text-sm">
+          <Link href={editHref} className="btn btn-dark w-full text-center text-sm sm:w-auto">
             Editar nombre, descripción y premiación
           </Link>
         </div>
