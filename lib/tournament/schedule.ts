@@ -93,8 +93,8 @@ export function scheduleMatches(
     };
   }
 
-  const pickSlot = (match: UnscheduledMatch): number => {
-    for (let i = 0; i < slots.length; i++) {
+  const pickSlot = (match: UnscheduledMatch, from = 0): number => {
+    for (let i = from; i < slots.length; i++) {
       if (used.has(i)) continue;
       const key = dayKey(slots[i]);
       if (!teamBusy(match.homeTeamName, key) && !teamBusy(match.awayTeamName, key)) {
@@ -104,8 +104,18 @@ export function scheduleMatches(
     return -1;
   };
 
+  let from = 0;
+  let currentPhase: UnscheduledMatch["phase"] | null = null;
+  let currentRound: number | null = null;
+  let roundMax = -1;
+
   for (const match of ordered) {
-    const index = pickSlot(match);
+    if (currentPhase != null && (match.phase !== currentPhase || match.round !== currentRound)) {
+      from = roundMax + 1;
+    }
+    currentPhase = match.phase;
+    currentRound = match.round;
+    const index = pickSlot(match, from);
     if (index < 0) {
       return {
         matches: [],
@@ -115,6 +125,7 @@ export function scheduleMatches(
       };
     }
     used.add(index);
+    roundMax = Math.max(roundMax, index);
     const when = slots[index];
     const key = dayKey(when);
     mark(match.homeTeamName, key);

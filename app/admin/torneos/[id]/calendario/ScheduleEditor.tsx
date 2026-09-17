@@ -7,6 +7,7 @@ import { formatDateTime, phaseLabel, WEEKDAYS } from "@/lib/format";
 import { scheduleMatches } from "@/lib/tournament/schedule";
 import type { OccupiedMatch } from "@/lib/tournament/schedule";
 import { scheduleFromDate } from "@/lib/tournament/dates";
+import { rebuildLeagueRounds } from "@/lib/tournament/roundRobin";
 import type { UnscheduledMatch } from "@/lib/tournament/types";
 
 type ScheduleDraft = {
@@ -43,16 +44,17 @@ export function ScheduleEditor({
   const [pendingSave, startTransition] = useTransition();
   const ask = useAskConfirm();
 
+  const rebuiltPending = useMemo(() => rebuildLeagueRounds(pending), [pending]);
   const preview = useMemo(
     () =>
-      pending.length === 0
+      rebuiltPending.length === 0
         ? { matches: [], error: undefined as string | undefined, slotsAvailable: 0, slotsNeeded: 0 }
         : scheduleMatches(
-            pending,
+            rebuiltPending,
             { ...draft, fromDate: scheduleFromDate(draft.startDate) },
             occupied,
           ),
-    [draft, occupied, pending],
+    [draft, occupied, rebuiltPending],
   );
 
   function update<K extends keyof ScheduleDraft>(key: K, value: ScheduleDraft[K]) {
@@ -81,7 +83,7 @@ export function ScheduleEditor({
       message:
         pendingCount === 0
           ? "¿Guardar esta configuración del calendario?"
-          : `¿Aplicar el nuevo calendario? Se moverán ${pendingCount} partidos pendientes, dejando ${draft.minDaysBetweenMatches} días entre partidos del mismo equipo (si juega lunes, puede volver el jueves). Los ya jugados no se tocan.`,
+          : `¿Reconstruir las jornadas y aplicar el nuevo calendario? Se reorganizarán todos los partidos pendientes (${pendingCount}) para que cada jornada tenga los cruces correctos, dejando ${draft.minDaysBetweenMatches} días entre partidos del mismo equipo. Los ya jugados no se tocan.`,
       confirmLabel: "Aplicar",
     });
     if (!ok) return;
@@ -104,8 +106,8 @@ export function ScheduleEditor({
         <div>
           <h2 className="display text-2xl">Días y fechas del torneo</h2>
           <p className="text-sm text-muted">
-            Los partidos pendientes se mueven a las nuevas franjas. Un equipo no juega tan seguido: con 3
-            días de separación, si juega lunes el siguiente puede ser el jueves.
+            Los partidos pendientes se vuelven a armar por jornada y se mueven a las nuevas franjas. Un equipo no
+            juega tan seguido: con 3 días de separación, si juega lunes el siguiente puede ser el jueves.
             {playedCount > 0 ? ` Los ${playedCount} partidos ya jugados no se tocan.` : ""}
           </p>
         </div>
@@ -213,7 +215,7 @@ export function ScheduleEditor({
         {error ? <p className="font-semibold text-red-400">{error}</p> : null}
         {message ? <p className="font-semibold text-lime">{message}</p> : null}
         <button className="btn btn-lime" disabled={finished || pendingSave} type="button" onClick={submit}>
-          {pendingSave ? "Guardando..." : "Aplicar nuevo calendario"}
+          {pendingSave ? "Guardando..." : "Reprogramar todas las jornadas"}
         </button>
       </div>
 

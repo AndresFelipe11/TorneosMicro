@@ -38,7 +38,7 @@ export function Wizard() {
     endDate: toInputDate(end),
     format: "ROUND_ROBIN",
     groupCount: 2,
-    qualifyPerGroup: 2,
+    qualifyPerGroup: 8,
     nextPhase: "KNOCKOUT",
     playingDays: [0, 6],
     maxMatchesPerDay: 4,
@@ -72,7 +72,7 @@ export function Wizard() {
       } else if (teams.length < 4) {
         teams = [...teams, ...Array.from({ length: 4 - teams.length }, () => emptyTeam())];
       }
-      return { ...current, format, teams };
+      return { ...current, format, teams, ...(format === "ROUND_ROBIN" ? { nextPhase: "KNOCKOUT" as const, qualifyPerGroup: 8 } : format === "GROUPS" ? { nextPhase: "KNOCKOUT" as const, qualifyPerGroup: 2 } : { nextPhase: "NONE" as const }) };
     });
   }
 
@@ -257,6 +257,43 @@ export function Wizard() {
                 </select>
               </Field>
             </div>
+          ) : null}
+          {config.format === "ROUND_ROBIN" ? (
+            <Field label="Instancias finales">
+              <select
+                className="field"
+                value={
+                  config.nextPhase === "QUADRANGULAR"
+                    ? "QUAD4"
+                    : config.nextPhase === "KNOCKOUT" && (config.qualifyPerGroup ?? 8) <= 4
+                      ? "KO4"
+                      : config.nextPhase === "KNOCKOUT"
+                        ? "KO8"
+                        : "NONE"
+                }
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (value === "KO4") {
+                    setConfig((current) => ({ ...current, nextPhase: "KNOCKOUT", qualifyPerGroup: 4 }));
+                    return;
+                  }
+                  if (value === "KO8") {
+                    setConfig((current) => ({ ...current, nextPhase: "KNOCKOUT", qualifyPerGroup: 8 }));
+                    return;
+                  }
+                  if (value === "QUAD4") {
+                    setConfig((current) => ({ ...current, nextPhase: "QUADRANGULAR", qualifyPerGroup: 4 }));
+                    return;
+                  }
+                  setConfig((current) => ({ ...current, nextPhase: "NONE" }));
+                }}
+              >
+                <option value="NONE">Solo liga (campeón por tabla)</option>
+                <option value="KO4">Semifinales y final (mejores 4)</option>
+                <option value="KO8">Cuartos, semis y final (mejores 8)</option>
+                <option value="QUAD4">Cuadrangular de los mejores 4</option>
+              </select>
+            </Field>
           ) : null}
         </div>
       ) : null}

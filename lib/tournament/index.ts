@@ -2,8 +2,9 @@ export { generateTournamentSchedule, generateUnscheduled, validateConfig, withDi
 export { scheduleMatches } from "./schedule";
 export { computeStandings, standingsByGroup } from "./standings";
 export { computeScorers } from "./scorers";
-export { generateKnockoutMatches, generateNextKnockout, knockoutRoundLabel, nextKnockoutRound, pairQualified, qualifiedFromStandings } from "./knockout";
-export { generateRoundRobin } from "./roundRobin";
+export { generateKnockoutMatches, generateNextKnockout, knockoutRoundLabel, nextKnockoutRound, pairBySeed, pairQualified, qualifiedFromStandings, qualifiedFromTable } from "./knockout";
+export { generateRoundRobin, rebuildLeagueRounds } from "./roundRobin";
+export { scheduleLeagueFixture } from "./fixture";
 export { distributeTeams, groupNameAt, teamsByGroup } from "./groups";
 export { buildSlots, parseLocalDate } from "./dates";
 export { computeDefense } from "./defense";

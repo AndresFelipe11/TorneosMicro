@@ -6,9 +6,9 @@ import { KnockoutRound, MatchPhase, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { canManageTournament, requireGlobalMutation, requireMatchResultMutation, requireTournamentMutation } from "@/lib/authz";
 import { clampMinDaysBetweenMatches, dayKey, fromBogotaDateTimeLocal, parseLocalDate, scheduleFromDate, teamNeedsRest, toBogotaDateString } from "@/lib/tournament/dates";
-import { generateRoundRobin } from "@/lib/tournament/roundRobin";
+import { generateRoundRobin, rebuildLeagueRounds } from "@/lib/tournament/roundRobin";
 import { scheduleMatches, scheduleOptionsFrom } from "@/lib/tournament/schedule";
-import { generateKnockoutMatches, generateNextKnockout, pairQualified, qualifiedFromStandings } from "@/lib/tournament/knockout";
+import { generateKnockoutMatches, generateNextKnockout, pairBySeed, pairQualified, qualifiedFromStandings, qualifiedFromTable } from "@/lib/tournament/knockout";
 import { validateConfig, withDistributedGroups } from "@/lib/tournament/generate";
 import type { GeneratedMatch, TournamentConfig, UnscheduledMatch } from "@/lib/tournament/types";
 import { getTournament, standingsFor } from "@/lib/queries";
@@ -53,8 +53,9 @@ export async function createTournamentAction(input: {
         status: "SCHEDULED",
         format: config.format,
         groupCount: config.format === "GROUPS" ? config.groupCount : null,
-        qualifyPerGroup: config.qualifyPerGroup ?? 2,
-        nextPhase: config.format === "GROUPS" ? (config.nextPhase ?? "NONE") : "NONE",
+        qualifyPerGroup: config.qualifyPerGroup ?? (config.format === "ROUND_ROBIN" ? 8 : 2),
+        nextPhase:
+          config.format === "QUADRANGULAR" ? "NONE" : (config.nextPhase ?? "NONE"),
         playingDays: config.playingDays,
         maxMatchesPerDay: config.maxMatchesPerDay,
         minDaysBetweenMatches: clampMinDaysBetweenMatches(config.minDaysBetweenMatches),
@@ -236,12 +237,24 @@ export async function updateTournamentScheduleAction(input: {
       scheduledAt: match.scheduledAt,
     }));
 
+  const rebuiltRounds = rebuildLeagueRounds(
+    tournament.matches.map((match) => ({
+      id: match.id,
+      homeTeamName: match.homeTeam.name,
+      awayTeamName: match.awayTeam.name,
+      phase: match.phase,
+      round: match.round,
+      groupName: match.group?.name,
+      knockoutRound: match.knockoutRound ?? undefined,
+    })),
+  );
+  const roundById = new Map(rebuiltRounds.map((match) => [match.id, match.round]));
   const unscheduled: UnscheduledMatch[] = pending.map((match) => ({
     id: match.id,
     homeTeamName: match.homeTeam.name,
     awayTeamName: match.awayTeam.name,
     phase: match.phase,
-    round: match.round,
+    round: roundById.get(match.id) ?? match.round,
     groupName: match.group?.name,
     knockoutRound: match.knockoutRound ?? undefined,
   }));
@@ -285,14 +298,26 @@ export async function updateTournamentScheduleAction(input: {
       data: { venue: nextVenue },
     });
 
-    for (const match of scheduled.matches) {
-      if (!match.id) continue;
-      await tx.match.update({
-        where: { id: match.id },
-        data: { scheduledAt: new Date(match.scheduledAt) },
-      });
+    const scheduledAtById = new Map(
+      scheduled.matches.filter((match) => match.id).map((match) => [match.id as string, match.scheduledAt]),
+    );
+
+    const toUpdate = rebuiltRounds.filter((match) => match.id);
+    for (let i = 0; i < toUpdate.length; i += 10) {
+      await Promise.all(
+        toUpdate.slice(i, i + 10).map((match) => {
+          const nextAt = scheduledAtById.get(match.id as string);
+          return tx.match.update({
+            where: { id: match.id },
+            data: {
+              round: match.round,
+              ...(nextAt ? { scheduledAt: new Date(nextAt) } : {}),
+            },
+          });
+        }),
+      );
     }
-  });
+  }, { timeout: 60_000 });
 
   revalidateTournament(tournament.id);
   return {
@@ -301,7 +326,7 @@ export async function updateTournamentScheduleAction(input: {
     message:
       scheduled.matches.length === 0
         ? "Se actualizaron los días de juego. No había partidos pendientes por mover."
-        : `Se reprogramaron ${scheduled.matches.length} partidos pendientes, dejando ${config.minDaysBetweenMatches} días entre partidos del mismo equipo.`,
+        : `Se reconstruyeron las jornadas y se reprogramaron ${scheduled.matches.length} partidos, dejando ${config.minDaysBetweenMatches} días entre partidos del mismo equipo.`,
   };
 }
 
@@ -693,160 +718,204 @@ function toDateInput(date: Date) {
   return toBogotaDateString(date);
 }
 
+function leaguePhaseOf(format: string) {
+  if (format === "GROUPS") return "GROUP" as const;
+  if (format === "ROUND_ROBIN") return "ROUND_ROBIN" as const;
+  return null;
+}
+
+function hasFinals(tournament: { format: string; nextPhase: string }) {
+  return tournament.nextPhase !== "NONE" && (tournament.format === "GROUPS" || tournament.format === "ROUND_ROBIN");
+}
+
+async function insertGeneratedMatches(
+  tournament: NonNullable<Awaited<ReturnType<typeof getTournament>>>,
+  unscheduled: UnscheduledMatch[],
+  fromDate: Date,
+  extraDays: number,
+) {
+  const start = toDateInput(fromDate);
+  const paddedEnd = toDateInput(new Date(fromDate.getTime() + 1000 * 60 * 60 * 24 * extraDays));
+  const end = toDateInput(tournament.endDate) > paddedEnd ? toDateInput(tournament.endDate) : paddedEnd;
+  let scheduled = scheduleMatches(
+    unscheduled,
+    scheduleOptionsFrom(tournament, {
+      startDate: start,
+      endDate: end,
+      fromDate: new Date(fromDate.getTime() + 1000 * 60 * 60 * 24),
+    }),
+  );
+  if (scheduled.error) return { error: scheduled.error };
+  const teamIds = new Map(tournament.teams.map((team) => [team.name, team.id]));
+  await prisma.match.createMany({
+    data: scheduled.matches.map((match) => ({
+      tournamentId: tournament.id,
+      homeTeamId: teamIds.get(match.homeTeamName)!,
+      awayTeamId: teamIds.get(match.awayTeamName)!,
+      phase: match.phase as MatchPhase,
+      round: match.round,
+      knockoutRound: (match.knockoutRound as KnockoutRound | undefined) ?? null,
+      scheduledAt: new Date(match.scheduledAt),
+      venue: venueOrNull(tournament.venue),
+    })),
+  });
+  return { ok: true as const };
+}
+
+export async function updateTournamentFinalsAction(input: {
+  tournamentId: string;
+  nextPhase: "NONE" | "KNOCKOUT" | "QUADRANGULAR";
+  qualifyCount: number;
+}) {
+  const access = await requireTournamentMutation(input.tournamentId);
+  if (!access.ok) return { error: access.error };
+  const tournament = await getTournament(input.tournamentId);
+  if (!tournament) return { error: "Torneo no encontrado." };
+  if (tournament.format !== "ROUND_ROBIN") {
+    return { error: "Estas llaves se configuran en la liga (todos contra todos)." };
+  }
+  if (tournament.matches.some((match) => match.phase === "KNOCKOUT" || match.phase === "QUADRANGULAR")) {
+    return { error: "Ya hay instancias finales programadas." };
+  }
+  if (input.nextPhase === "KNOCKOUT" && input.qualifyCount !== 4 && input.qualifyCount !== 8) {
+    return { error: "Las llaves deben ser de los mejores 4 o de los mejores 8." };
+  }
+  if (input.nextPhase === "QUADRANGULAR" && input.qualifyCount !== 4) {
+    return { error: "El cuadrangular final es de 4 equipos." };
+  }
+  await prisma.tournament.update({
+    where: { id: tournament.id },
+    data: {
+      nextPhase: input.nextPhase,
+      qualifyPerGroup: input.nextPhase === "NONE" ? tournament.qualifyPerGroup : input.qualifyCount,
+    },
+  });
+  revalidateTournament(tournament.id);
+  return { ok: true, message: "Quedaron configuradas las instancias finales." };
+}
+
 export async function advancePhaseAction(tournamentId: string) {
   const access = await requireTournamentMutation(tournamentId);
   if (!access.ok) return { error: access.error };
   const tournament = await getTournament(tournamentId);
   if (!tournament) return { error: "Torneo no encontrado." };
 
-  const groupMatches = tournament.matches.filter((match) => match.phase === "GROUP");
+  const leaguePhase = leaguePhaseOf(tournament.format);
+  const leagueMatches = leaguePhase
+    ? tournament.matches.filter((match) => match.phase === leaguePhase)
+    : [];
   const knockoutMatches = tournament.matches.filter((match) => match.phase === "KNOCKOUT");
   const quadMatches = tournament.matches.filter((match) => match.phase === "QUADRANGULAR");
 
-  if (tournament.format === "GROUPS" && tournament.nextPhase !== "NONE") {
-    const groupsDone = groupMatches.length > 0 && groupMatches.every((match) => isClosedMatch(match.status));
-    if (!groupsDone) return { error: "Todavía hay partidos de grupos sin resultado." };
+  if (hasFinals(tournament) && knockoutMatches.length > 0 && tournament.nextPhase === "KNOCKOUT") {
+    const latestRound = knockoutMatches.reduce<KnockoutRound>(
+      (current, match) => match.knockoutRound ?? current,
+      knockoutMatches[0]?.knockoutRound ?? "SF",
+    );
+    const currentRoundMatches = knockoutMatches.filter((match) => match.knockoutRound === latestRound);
+    if (!currentRoundMatches.every((match) => isClosedMatch(match.status))) {
+      return { error: "Faltan resultados en la ronda de eliminación actual." };
+    }
+    if (latestRound === "F") {
+      await prisma.tournament.update({ where: { id: tournamentId }, data: { status: "FINISHED" } });
+      revalidateTournament(tournamentId);
+      return { ok: true, message: "El torneo quedó finalizado." };
+    }
+    const winners = currentRoundMatches
+      .map((match) => {
+        const winnerId =
+          match.winnerId ?? (match.homeScore! > match.awayScore! ? match.homeTeamId : match.awayTeamId);
+        return tournament.teams.find((item) => item.id === winnerId)?.name ?? "";
+      })
+      .filter(Boolean);
+    const unscheduled = generateNextKnockout(winners);
+    if (unscheduled.length === 0) {
+      await prisma.tournament.update({ where: { id: tournamentId }, data: { status: "FINISHED" } });
+      revalidateTournament(tournamentId);
+      return { ok: true, message: "El torneo quedó finalizado." };
+    }
+    const created = await insertGeneratedMatches(
+      tournament,
+      unscheduled,
+      lastMatchDate(currentRoundMatches.map((match) => match.scheduledAt)),
+      30,
+    );
+    if ("error" in created && created.error) return { error: created.error };
+    revalidateTournament(tournamentId);
+    return { ok: true, message: "Se programó la siguiente ronda." };
+  }
+
+  if (hasFinals(tournament)) {
+    const leagueDone = leagueMatches.length > 0 && leagueMatches.every((match) => isClosedMatch(match.status));
+    if (!leagueDone) {
+      return {
+        error:
+          tournament.format === "GROUPS"
+            ? "Todavía hay partidos de grupos sin resultado."
+            : "Todavía hay partidos de liga sin resultado.",
+      };
+    }
 
     if (tournament.nextPhase === "QUADRANGULAR" && quadMatches.length === 0) {
       const standings = [...standingsFor(tournament).values()].flat();
-      const qualified = qualifiedFromStandings(standings, tournament.qualifyPerGroup);
+      const qualified =
+        tournament.format === "GROUPS"
+          ? qualifiedFromStandings(standings, tournament.qualifyPerGroup)
+          : qualifiedFromTable(standingsFor(tournament).get("General") ?? [], 4);
       if (qualified.length !== 4) {
         return { error: "El cuadrangular final necesita 4 clasificados." };
       }
-      const unscheduled = generateRoundRobin(
-        qualified.map((item) => item.teamName),
-        "QUADRANGULAR",
+      const created = await insertGeneratedMatches(
+        tournament,
+        generateRoundRobin(
+          qualified.map((item) => item.teamName),
+          "QUADRANGULAR",
+        ),
+        lastMatchDate(leagueMatches.map((match) => match.scheduledAt)),
+        28,
       );
-      const fromDate = lastMatchDate(groupMatches.map((match) => match.scheduledAt));
-      const scheduled = scheduleMatches(
-        unscheduled,
-        scheduleOptionsFrom(tournament, {
-          startDate: toDateInput(fromDate),
-          endDate: toDateInput(tournament.endDate) > toDateInput(fromDate)
-            ? toDateInput(tournament.endDate)
-            : toDateInput(new Date(fromDate.getTime() + 1000 * 60 * 60 * 24 * 28)),
-          fromDate: new Date(fromDate.getTime() + 1000 * 60 * 60 * 24),
-        }),
-      );
-      if (scheduled.error) return { error: scheduled.error };
-      const teamIds = new Map(tournament.teams.map((team) => [team.name, team.id]));
-      await prisma.match.createMany({
-        data: scheduled.matches.map((match) => ({
-          tournamentId,
-          homeTeamId: teamIds.get(match.homeTeamName)!,
-          awayTeamId: teamIds.get(match.awayTeamName)!,
-          phase: "QUADRANGULAR" as MatchPhase,
-          round: match.round,
-          scheduledAt: new Date(match.scheduledAt),
-          venue: venueOrNull(tournament.venue),
-        })),
-      });
+      if ("error" in created && created.error) return { error: created.error };
       await prisma.tournament.update({ where: { id: tournamentId }, data: { status: "IN_PROGRESS" } });
       revalidateTournament(tournamentId);
       return { ok: true, message: "Se programó el cuadrangular final." };
     }
 
-    if (tournament.nextPhase === "KNOCKOUT") {
-      if (knockoutMatches.length === 0) {
-        const grouped = standingsFor(tournament);
-        const standings = [...grouped.entries()].flatMap(([groupName, rows]) =>
-          rows.map((row) => ({ ...row, groupName })),
-        );
-        const qualified = qualifiedFromStandings(standings, tournament.qualifyPerGroup);
-        const pairs = pairQualified(qualified);
-        const unscheduled = generateKnockoutMatches(pairs);
-        if (unscheduled.length === 0) {
-          return { error: "No se pudieron armar las llaves de eliminación." };
-        }
-        const fromDate = lastMatchDate(groupMatches.map((match) => match.scheduledAt));
-        const scheduled = scheduleMatches(
-          unscheduled,
-          scheduleOptionsFrom(tournament, {
-            startDate: toDateInput(fromDate),
-            endDate: toDateInput(tournament.endDate),
-            fromDate: new Date(fromDate.getTime() + 1000 * 60 * 60 * 24),
-          }),
-        );
-        if (scheduled.error) {
-          const retry = scheduleMatches(
-            unscheduled,
-            scheduleOptionsFrom(tournament, {
-              startDate: toDateInput(fromDate),
-              endDate: toDateInput(new Date(fromDate.getTime() + 1000 * 60 * 60 * 24 * 45)),
-              fromDate: new Date(fromDate.getTime() + 1000 * 60 * 60 * 24),
-            }),
-          );
-          if (retry.error) return { error: retry.error };
-          scheduled.matches = retry.matches;
-          scheduled.error = undefined;
-        }
-        const teamIds = new Map(tournament.teams.map((team) => [team.name, team.id]));
-        await prisma.match.createMany({
-          data: scheduled.matches.map((match) => ({
-            tournamentId,
-            homeTeamId: teamIds.get(match.homeTeamName)!,
-            awayTeamId: teamIds.get(match.awayTeamName)!,
-            phase: "KNOCKOUT" as MatchPhase,
-            round: match.round,
-            knockoutRound: match.knockoutRound as KnockoutRound,
-            scheduledAt: new Date(match.scheduledAt),
-            venue: venueOrNull(tournament.venue),
-          })),
-        });
-        await prisma.tournament.update({ where: { id: tournamentId }, data: { status: "IN_PROGRESS" } });
-        revalidateTournament(tournamentId);
-        return { ok: true, message: "Se programó la fase de eliminación." };
-      }
-
-      const latestRound = knockoutMatches.reduce<KnockoutRound>(
-        (current, match) => match.knockoutRound ?? current,
-        knockoutMatches[0]?.knockoutRound ?? "SF",
-      );
-      const currentRoundMatches = knockoutMatches.filter((match) => match.knockoutRound === latestRound);
-      if (!currentRoundMatches.every((match) => isClosedMatch(match.status))) {
-        return { error: "Faltan resultados en la ronda de eliminación actual." };
-      }
-      if (latestRound === "F") {
-        await prisma.tournament.update({ where: { id: tournamentId }, data: { status: "FINISHED" } });
-        revalidateTournament(tournamentId);
-        return { ok: true, message: "El torneo quedó finalizado." };
-      }
-      const winners = currentRoundMatches.map((match) => {
-        const winnerId = match.winnerId ?? (match.homeScore! > match.awayScore! ? match.homeTeamId : match.awayTeamId);
-        const team = tournament.teams.find((item) => item.id === winnerId);
-        return team?.name ?? "";
-      }).filter(Boolean);
-      const unscheduled = generateNextKnockout(winners);
+    if (tournament.nextPhase === "KNOCKOUT" && knockoutMatches.length === 0) {
+      const grouped = standingsFor(tournament);
+      const pairs =
+        tournament.format === "GROUPS"
+          ? pairQualified(
+              qualifiedFromStandings(
+                [...grouped.entries()].flatMap(([groupName, rows]) =>
+                  rows.map((row) => ({ ...row, groupName })),
+                ),
+                tournament.qualifyPerGroup,
+              ),
+            )
+          : pairBySeed(
+              qualifiedFromTable(grouped.get("General") ?? [], tournament.qualifyPerGroup).map(
+                (item) => item.teamName,
+              ),
+            );
+      const unscheduled = generateKnockoutMatches(pairs);
       if (unscheduled.length === 0) {
-        await prisma.tournament.update({ where: { id: tournamentId }, data: { status: "FINISHED" } });
-        revalidateTournament(tournamentId);
-        return { ok: true, message: "El torneo quedó finalizado." };
+        return {
+          error:
+            tournament.format === "ROUND_ROBIN"
+              ? `Se necesitan ${tournament.qualifyPerGroup} equipos en la tabla para armar las llaves.`
+              : "No se pudieron armar las llaves de eliminación.",
+        };
       }
-      const fromDate = lastMatchDate(currentRoundMatches.map((match) => match.scheduledAt));
-      const scheduled = scheduleMatches(
+      const created = await insertGeneratedMatches(
+        tournament,
         unscheduled,
-        scheduleOptionsFrom(tournament, {
-          startDate: toDateInput(fromDate),
-          endDate: toDateInput(new Date(fromDate.getTime() + 1000 * 60 * 60 * 24 * 30)),
-          fromDate: new Date(fromDate.getTime() + 1000 * 60 * 60 * 24),
-        }),
+        lastMatchDate(leagueMatches.map((match) => match.scheduledAt)),
+        45,
       );
-      if (scheduled.error) return { error: scheduled.error };
-      const teamIds = new Map(tournament.teams.map((team) => [team.name, team.id]));
-      await prisma.match.createMany({
-        data: scheduled.matches.map((match) => ({
-          tournamentId,
-          homeTeamId: teamIds.get(match.homeTeamName)!,
-          awayTeamId: teamIds.get(match.awayTeamName)!,
-          phase: "KNOCKOUT" as MatchPhase,
-          round: match.round,
-          knockoutRound: match.knockoutRound as KnockoutRound,
-          scheduledAt: new Date(match.scheduledAt),
-          venue: venueOrNull(tournament.venue),
-        })),
-      });
+      if ("error" in created && created.error) return { error: created.error };
+      await prisma.tournament.update({ where: { id: tournamentId }, data: { status: "IN_PROGRESS" } });
       revalidateTournament(tournamentId);
-      return { ok: true, message: "Se programó la siguiente ronda." };
+      return { ok: true, message: "Se programó la fase de eliminación." };
     }
   }
 

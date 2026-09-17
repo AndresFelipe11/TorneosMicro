@@ -183,7 +183,7 @@ export function RosterEditor({
           const teamName = newTeam.trim();
           const ok = await ask({
             title: "Agregar equipo",
-            message: `¿Agregar a ${teamName || "este equipo"}?\nSe le programarán partidos contra los rivales.`,
+            message: `¿Agregar a ${teamName || "este equipo"}?\nSe reconstruyen las jornadas y se reprograma el calendario de los partidos pendientes.`,
             confirmLabel: "Agregar",
           });
           if (!ok) return;
@@ -206,10 +206,11 @@ export function RosterEditor({
       >
         <h2 className="display text-2xl">Agregar equipo</h2>
         <p className="text-sm text-muted">
-          Se programan partidos de un solo cruce contra los rivales del mismo grupo o del torneo. Si
-          el torneo no ha empezado, entran en esta misma semana; si ya inició, desde la semana
-          siguiente. Si no caben, amplía la fecha de fin, añade otro día de juego o sube los
-          partidos por día.
+          Cada vez que agregas un equipo se vuelven a armar las jornadas (todos contra todos) y se
+          reprograma el calendario completo de partidos pendientes, con el descanso entre partidos
+          del mismo equipo. Si el torneo no ha empezado, se mueve desde el inicio; si ya inició, los
+          jugados no se tocan y el resto queda desde la semana siguiente. Si no caben, amplía la
+          fecha de fin, añade otro día de juego o sube los partidos por día.
         </p>
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
           <input
@@ -256,7 +257,7 @@ export function RosterEditor({
             onDelete={async () => {
               const ok = await ask({
                 title: "Eliminar equipo",
-                message: `¿Eliminar a ${team.name}?\nSe borrarán sus partidos, incluidos los que ya tengan resultado.`,
+                message: `¿Eliminar a ${team.name}?\nSe borrarán sus partidos pendientes y se reconstruirán las jornadas. No se puede si ya tiene partidos jugados.`,
                 confirmLabel: "Eliminar",
                 danger: true,
               });

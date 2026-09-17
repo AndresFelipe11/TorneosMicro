@@ -1,11 +1,11 @@
 import ExcelJS from "exceljs";
 import {
   cardLabel,
+  finalsPlanLabel,
   formatDate,
   formatDateTime,
   formatLabel,
   knockoutLabel,
-  nextPhaseLabel,
   phaseLabel,
   playerLabel,
   playingDaysLabel,
@@ -80,7 +80,7 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
       ["Partidos por día", tournament.maxMatchesPerDay],
       ["Días entre partidos del mismo equipo", tournament.minDaysBetweenMatches],
       ["Duración (min)", tournament.matchDurationMinutes],
-      ["Siguiente fase", tournament.format === "GROUPS" ? nextPhaseLabel(tournament.nextPhase) : "—"],
+      ["Siguiente fase", finalsPlanLabel(tournament.format, tournament.nextPhase, tournament.qualifyPerGroup) ?? "—"],
       ["Equipos", tournament.teams.length],
       ["Partidos", tournament.matches.length],
     ],

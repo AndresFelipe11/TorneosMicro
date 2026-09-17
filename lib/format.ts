@@ -56,6 +56,22 @@ export function nextPhaseLabel(phase: NextPhase) {
   return nextPhaseLabels[phase];
 }
 
+export function finalsPlanLabel(format: TournamentFormat, nextPhase: NextPhase, qualifyCount: number) {
+  if (nextPhase === "NONE") return null;
+  if (format === "GROUPS") {
+    return `Después de grupos: ${nextPhaseLabel(nextPhase)}`;
+  }
+  if (format === "ROUND_ROBIN") {
+    if (nextPhase === "KNOCKOUT") {
+      return qualifyCount <= 4
+        ? "Después de la liga: semifinales y final (mejores 4)"
+        : "Después de la liga: cuartos, semis y final (mejores 8)";
+    }
+    if (nextPhase === "QUADRANGULAR") return "Después de la liga: cuadrangular entre los mejores 4";
+  }
+  return nextPhaseLabel(nextPhase);
+}
+
 export function knockoutLabel(round: KnockoutRound) {
   return knockoutLabels[round];
 }

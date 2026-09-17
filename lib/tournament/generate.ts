@@ -24,8 +24,18 @@ export function validateConfig(config: TournamentConfig): string | null {
   if (config.format === "QUADRANGULAR" && names.length !== 4) {
     return "El cuadrangular requiere exactamente 4 equipos.";
   }
-  if (config.format === "ROUND_ROBIN" && names.length < 3) {
-    return "El todos contra todos requiere al menos 3 equipos.";
+  if (config.format === "ROUND_ROBIN") {
+    if (names.length < 3) {
+      return "El todos contra todos requiere al menos 3 equipos.";
+    }
+    const next = config.nextPhase ?? "NONE";
+    const qualify = config.qualifyPerGroup ?? 8;
+    if (next === "KNOCKOUT" && ![4, 8].includes(qualify)) {
+      return "La eliminación después de la liga debe ser entre los mejores 4 o los mejores 8.";
+    }
+    if (next === "QUADRANGULAR" && qualify !== 4) {
+      return "El cuadrangular final necesita exactamente 4 clasificados.";
+    }
   }
   if (config.format === "GROUPS") {
     const groupCount = config.groupCount ?? 0;

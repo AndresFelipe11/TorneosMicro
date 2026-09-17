@@ -5,6 +5,8 @@ import { toBogotaDateString } from "@/lib/tournament/dates";
 import { isClosedMatch } from "@/lib/tournament/match";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { MatchList } from "@/components/MatchList";
+import { ExportJornadaImageButton } from "@/components/ExportJornadaImageButton";
+import { buildJornadaPosters } from "@/lib/tournament/jornada";
 import { ScheduleEditor } from "./ScheduleEditor";
 
 export default async function AdminCalendarPage({ params }: { params: Promise<{ id: string }> }) {
@@ -20,8 +22,9 @@ export default async function AdminCalendarPage({ params }: { params: Promise<{ 
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="display text-4xl">{tournament.name}</h1>
       <p className="mb-4 text-muted">
-        Al aplicar el calendario, los partidos pendientes se reprograman dejando días de descanso
-        entre partidos del mismo equipo. Los ya jugados no se tocan.
+        Al aplicar el calendario se reconstruyen las jornadas (cada fecha con sus cruces) y se
+        reprograman los partidos pendientes, dejando días de descanso entre partidos del mismo equipo.
+        Los ya jugados no se tocan.
       </p>
       <TournamentTabs id={id} admin />
       <ScheduleEditor
@@ -54,7 +57,10 @@ export default async function AdminCalendarPage({ params }: { params: Promise<{ 
           scheduledAt: match.scheduledAt.toISOString(),
         }))}
       />
-      <h2 className="display mb-3 mt-8 text-2xl">Partidos</h2>
+      <div className="mb-3 mt-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <h2 className="display text-2xl">Partidos</h2>
+        <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
+      </div>
       <MatchList
         matches={tournament.matches}
         hrefFor={(matchId) => `/admin/torneos/${id}/partidos/${matchId}`}

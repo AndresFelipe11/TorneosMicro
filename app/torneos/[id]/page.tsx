@@ -1,13 +1,15 @@
 import { notFound } from "next/navigation";
 import { defenseFor, getTournament, scorersFor, standingsFor } from "@/lib/queries";
-import { formatDate, formatLabel, nextPhaseLabel, playingDaysLabel, registrationIsOpen } from "@/lib/format";
+import { formatDate, formatLabel, finalsPlanLabel, playingDaysLabel, registrationIsOpen } from "@/lib/format";
 import { tournamentFilter } from "@/lib/search";
+import { buildJornadaPosters } from "@/lib/tournament/jornada";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { StatusBadge, MatchList } from "@/components/MatchList";
 import { StandingsTable } from "@/components/StandingsTable";
 import { ScorersTable } from "@/components/ScorersTable";
 import { DefenseTable } from "@/components/DefenseTable";
 import { ExportExcelButton } from "@/components/ExportExcelButton";
+import { ExportJornadaImageButton } from "@/components/ExportJornadaImageButton";
 import { TournamentInfo } from "@/components/TournamentInfo";
 import { TournamentFilterNote } from "@/components/TournamentFilterNote";
 import { TournamentHeading } from "@/components/TournamentCover";
@@ -59,8 +61,8 @@ export default async function TournamentPage({
               {playingDaysLabel(tournament.playingDays)}
               {tournament.venue ? ` · ${tournament.venue}` : ""}
             </p>
-            {tournament.format === "GROUPS" ? (
-              <p className="text-sm">Después de grupos: {nextPhaseLabel(tournament.nextPhase)}</p>
+            {finalsPlanLabel(tournament.format, tournament.nextPhase, tournament.qualifyPerGroup) ? (
+              <p className="text-sm">{finalsPlanLabel(tournament.format, tournament.nextPhase, tournament.qualifyPerGroup)}</p>
             ) : null}
           </>
         }
@@ -68,6 +70,7 @@ export default async function TournamentPage({
           <>
             <StatusBadge status={tournament.status} />
             <ExportExcelButton tournamentId={id} />
+            <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
           </>
         }
         description={tournament.description}

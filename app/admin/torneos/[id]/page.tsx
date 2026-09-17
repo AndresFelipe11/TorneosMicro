@@ -4,16 +4,19 @@ import { prisma } from "@/lib/prisma";
 import { getTournament, getTournamentResultLogs } from "@/lib/queries";
 import { canManageTournament, isGlobalAdmin, isScorekeeper, requireTournamentPage } from "@/lib/authz";
 import { ResultAuditLog } from "@/components/ResultAuditLog";
-import { formatDate, formatLabel, nextPhaseLabel } from "@/lib/format";
+import { finalsPlanLabel, formatDate, formatLabel } from "@/lib/format";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { MatchList, StatusBadge } from "@/components/MatchList";
 import { AdvanceButton, DeleteTournamentButton, FinishButton } from "@/components/AdminActions";
 import { TournamentAdminsPanel } from "./TournamentAdminsPanel";
 import { TournamentScorekeepersPanel } from "./TournamentScorekeepersPanel";
 import { ExportExcelButton } from "@/components/ExportExcelButton";
+import { ExportJornadaImageButton } from "@/components/ExportJornadaImageButton";
 import { TournamentInfo } from "@/components/TournamentInfo";
+import { buildJornadaPosters } from "@/lib/tournament/jornada";
 import { TournamentHeading } from "@/components/TournamentCover";
 import { PostponeRequestsPanel } from "@/components/PostponeRequestsPanel";
+import { FinalsSettings } from "@/components/FinalsSettings";
 
 export default async function AdminTournamentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -79,8 +82,8 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
               {formatLabel(tournament.format)} · {formatDate(tournament.startDate)} — {formatDate(tournament.endDate)}
               {tournament.venue ? ` · ${tournament.venue}` : ""}
             </p>
-            {tournament.format === "GROUPS" ? (
-              <p className="text-sm">Siguiente fase: {nextPhaseLabel(tournament.nextPhase)}</p>
+            {finalsPlanLabel(tournament.format, tournament.nextPhase, tournament.qualifyPerGroup) ? (
+              <p className="text-sm">{finalsPlanLabel(tournament.format, tournament.nextPhase, tournament.qualifyPerGroup)}</p>
             ) : null}
           </>
         }
@@ -110,12 +113,22 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
             Editar equipos
           </Link>
           <ExportExcelButton tournamentId={id} />
-          {tournament.format === "GROUPS" && tournament.nextPhase !== "NONE" ? (
+          <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
+          {(tournament.format === "GROUPS" || tournament.format === "ROUND_ROBIN") &&
+          tournament.nextPhase !== "NONE" ? (
             <AdvanceButton tournamentId={id} />
           ) : null}
           <FinishButton tournamentId={id} />
           {isGlobalAdmin(admin) ? <DeleteTournamentButton tournamentId={id} /> : null}
         </div>
+      ) : null}
+      {manage && tournament.format === "ROUND_ROBIN" ? (
+        <FinalsSettings
+          tournamentId={id}
+          nextPhase={tournament.nextPhase}
+          qualifyCount={tournament.qualifyPerGroup}
+          locked={tournament.matches.some((match) => match.phase === "KNOCKOUT" || match.phase === "QUADRANGULAR")}
+        />
       ) : null}
       {manage ? (
         <PostponeRequestsPanel

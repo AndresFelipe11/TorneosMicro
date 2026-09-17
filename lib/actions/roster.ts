@@ -1,14 +1,15 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { MatchPhase } from "@prisma/client";
+import { MatchPhase, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireTournamentMutation } from "@/lib/authz";
 import { getTournament } from "@/lib/queries";
-import { scheduleMatches, scheduleOptionsFrom } from "@/lib/tournament/schedule";
+import { scheduleOptionsFrom } from "@/lib/tournament/schedule";
+import { scheduleLeagueFixture, type FixtureMatch } from "@/lib/tournament/fixture";
 import { scheduleFromDate, startOfNextWeekBogota, toBogotaDateString } from "@/lib/tournament/dates";
-import type { MatchPhase as Phase, UnscheduledMatch } from "@/lib/tournament/types";
-import { hasTournamentStarted, venueOrNull } from "@/lib/tournament/match";
+import type { GeneratedMatch, MatchPhase as Phase } from "@/lib/tournament/types";
+import { hasTournamentStarted, isClosedMatch, venueOrNull } from "@/lib/tournament/match";
 import { upsertTeamCaptain } from "@/lib/captain";
 import { normalizeWhatsApp } from "@/lib/whatsapp";
 import { teamName } from "@/lib/format";
@@ -38,6 +39,79 @@ function leaguePhase(format: "ROUND_ROBIN" | "GROUPS" | "QUADRANGULAR"): Phase {
   if (format === "GROUPS") return "GROUP";
   if (format === "QUADRANGULAR") return "QUADRANGULAR";
   return "ROUND_ROBIN";
+}
+
+function toFixtureMatch(match: {
+  id: string;
+  status: string;
+  phase: Phase;
+  round: number;
+  scheduledAt: Date;
+  knockoutRound?: "R16" | "QF" | "SF" | "F" | null;
+  homeTeam: { name: string };
+  awayTeam: { name: string };
+  group?: { name: string } | null;
+}): FixtureMatch {
+  return {
+    id: match.id,
+    homeTeamName: match.homeTeam.name,
+    awayTeamName: match.awayTeam.name,
+    phase: match.phase,
+    round: match.round,
+    groupName: match.group?.name,
+    knockoutRound: match.knockoutRound ?? undefined,
+    status: match.status,
+    scheduledAt: match.scheduledAt,
+  };
+}
+
+function fixtureConfig(
+  tournament: {
+    startDate: Date;
+    endDate: Date;
+    playingDays: number[];
+    maxMatchesPerDay: number;
+    matchDurationMinutes: number;
+    startTime: string;
+    minDaysBetweenMatches?: number | null;
+    status: string;
+    matches: { status: string; scheduledAt: Date | string }[];
+  },
+) {
+  const started = hasTournamentStarted(tournament);
+  return {
+    started,
+    config: scheduleOptionsFrom(tournament, {
+      startDate: dateField(tournament.startDate),
+      endDate: dateField(tournament.endDate),
+      fromDate: started ? startOfNextWeekBogota() : scheduleFromDate(dateField(tournament.startDate)),
+    }),
+  };
+}
+
+async function applyExistingFixture(
+  tx: Prisma.TransactionClient,
+  rounds: FixtureMatch[],
+  dates: GeneratedMatch[],
+) {
+  const scheduledAtById = new Map(
+    dates.filter((match) => match.id).map((match) => [match.id as string, match.scheduledAt]),
+  );
+  const toUpdate = rounds.filter((match) => match.id);
+  for (let i = 0; i < toUpdate.length; i += 10) {
+    await Promise.all(
+      toUpdate.slice(i, i + 10).map((match) => {
+        const nextAt = scheduledAtById.get(match.id as string);
+        return tx.match.update({
+          where: { id: match.id },
+          data: {
+            round: match.round,
+            ...(nextAt ? { scheduledAt: new Date(nextAt) } : {}),
+          },
+        });
+      }),
+    );
+  }
 }
 
 export async function updateTournamentNameAction(
@@ -156,41 +230,29 @@ export async function addTeamToTournament(input: {
 
   const opponents = tournament.teams.filter((team) => (groupId ? team.groupId === groupId : true));
   const phase = leaguePhase(tournament.format);
-  const unscheduled: UnscheduledMatch[] = opponents.map((team, index) => ({
+  const newcomers: FixtureMatch[] = opponents.map((team) => ({
     homeTeamName: name,
     awayTeamName: team.name,
     phase,
-    round: index + 1,
+    round: 1,
     groupName,
+    status: "SCHEDULED",
   }));
-
-  const started = hasTournamentStarted(tournament);
-  const occupied = tournament.matches.map((match) => ({
-    homeTeamName: match.homeTeam.name,
-    awayTeamName: match.awayTeam.name,
-    scheduledAt: match.scheduledAt,
-  }));
-
-  const scheduled =
-    unscheduled.length === 0
-      ? { matches: [], error: undefined as string | undefined }
-      : scheduleMatches(
-          unscheduled,
-          scheduleOptionsFrom(tournament, {
-            startDate: dateField(tournament.startDate),
-            endDate: dateField(tournament.endDate),
-            fromDate: started ? startOfNextWeekBogota() : scheduleFromDate(dateField(tournament.startDate)),
-          }),
-          occupied,
-        );
-
-  if (scheduled.error) return { error: scheduled.error };
+  const { started, config } = fixtureConfig(tournament);
+  const plan = scheduleLeagueFixture(
+    [...tournament.matches.map(toFixtureMatch), ...newcomers],
+    config,
+    groupName ? { groupName } : undefined,
+  );
+  if (plan.error) return { error: plan.error };
 
   const players = input.players.map((player) => player.trim()).filter(Boolean);
   const whatsapp = input.whatsapp?.trim() ? normalizeWhatsApp(input.whatsapp) : null;
   if (input.whatsapp?.trim() && !whatsapp) {
     return { error: "El WhatsApp del capitán no es válido." };
   }
+
+  const newDates = plan.dates.filter((match) => !match.id);
 
   await prisma.$transaction(async (tx) => {
     const team = await tx.team.create({
@@ -212,9 +274,9 @@ export async function addTeamToTournament(input: {
     const ids = new Map(tournament.teams.map((item) => [item.name, item.id]));
     ids.set(name, team.id);
 
-    if (scheduled.matches.length > 0) {
+    if (newDates.length > 0) {
       await tx.match.createMany({
-        data: scheduled.matches.map((match) => ({
+        data: newDates.map((match) => ({
           tournamentId: tournament.id,
           homeTeamId: ids.get(match.homeTeamName)!,
           awayTeamId: ids.get(match.awayTeamName)!,
@@ -226,17 +288,20 @@ export async function addTeamToTournament(input: {
         })),
       });
     }
-  });
+
+    await applyExistingFixture(tx, plan.rounds, plan.dates);
+  }, { timeout: 60_000 });
 
   revalidateRoster(tournament.id);
+  const jornadaCount = new Set(plan.dates.map((match) => match.round)).size;
   return {
     ok: true,
     message:
-      scheduled.matches.length === 0
-        ? "Equipo agregado. Cuando haya más rivales se programarán los partidos."
+      opponents.length === 0
+        ? "Equipo agregado. Cuando haya más rivales se armarán las jornadas."
         : started
-          ? `Equipo agregado. Se programaron ${scheduled.matches.length} partidos desde la semana siguiente.`
-          : `Equipo agregado. Se programaron ${scheduled.matches.length} partidos, incluida esta semana.`,
+          ? `Equipo agregado. Se reconstruyeron ${jornadaCount} jornadas y se reprogramó el calendario desde la semana siguiente.`
+          : `Equipo agregado. Se reconstruyeron ${jornadaCount} jornadas y se reprogramó todo el calendario.`,
   };
 }
 
@@ -311,17 +376,39 @@ export async function deleteTeamAction(teamId: string) {
   const access = await requireTournamentMutation(team.tournamentId);
   if (!access.ok) return { error: access.error };
 
-  const matchIds = [...team.homeMatches, ...team.awayMatches].map((match) => match.id);
+  const ownMatches = [...team.homeMatches, ...team.awayMatches];
+  if (ownMatches.some((match) => isClosedMatch(match.status))) {
+    return { error: "No se puede quitar: ese equipo ya tiene partidos jugados." };
+  }
+
+  const tournament = await getTournament(team.tournamentId);
+  if (!tournament) return { error: "Torneo no encontrado." };
+  if (tournament.status === "FINISHED") return { error: "El torneo ya terminó." };
+
+  const remaining = tournament.matches.filter(
+    (match) => match.homeTeamId !== teamId && match.awayTeamId !== teamId,
+  );
+  const groupName = tournament.teams.find((item) => item.id === teamId)?.group?.name;
+  const { config } = fixtureConfig(tournament);
+  const plan = scheduleLeagueFixture(
+    remaining.map(toFixtureMatch),
+    config,
+    groupName ? { groupName } : undefined,
+  );
+  if (plan.error) return { error: plan.error };
+
+  const matchIds = ownMatches.map((match) => match.id);
 
   await prisma.$transaction(async (tx) => {
     if (matchIds.length > 0) {
       await tx.match.deleteMany({ where: { id: { in: matchIds } } });
     }
     await tx.team.delete({ where: { id: teamId } });
-  });
+    await applyExistingFixture(tx, plan.rounds, plan.dates);
+  }, { timeout: 60_000 });
 
   revalidateRoster(team.tournamentId);
-  return { ok: true };
+  return { ok: true, message: "Equipo eliminado. Se reconstruyeron las jornadas del calendario." };
 }
 
 export async function addPlayerAction(teamId: string, name: string) {

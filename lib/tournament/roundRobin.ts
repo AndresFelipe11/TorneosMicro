@@ -48,3 +48,42 @@ export function generateRoundRobin(
     groupName,
   }));
 }
+
+const LEAGUE_PHASES = new Set<MatchPhase>(["ROUND_ROBIN", "GROUP", "QUADRANGULAR"]);
+
+function pairKey(a: string, b: string) {
+  return [a, b].sort((left, right) => left.localeCompare(right, "es")).join("\0");
+}
+
+export function rebuildLeagueRounds<T extends UnscheduledMatch>(matches: T[]): T[] {
+  const buckets = new Map<string, T[]>();
+  const others: T[] = [];
+  for (const match of matches) {
+    if (!LEAGUE_PHASES.has(match.phase)) {
+      others.push(match);
+      continue;
+    }
+    const key = `${match.phase}::${match.groupName ?? ""}`;
+    const bucket = buckets.get(key) ?? [];
+    bucket.push(match);
+    buckets.set(key, bucket);
+  }
+
+  const rebuilt: T[] = [];
+  for (const groupMatches of buckets.values()) {
+    const teams = [
+      ...new Set(groupMatches.flatMap((match) => [match.homeTeamName, match.awayTeamName])),
+    ].sort((left, right) => left.localeCompare(right, "es"));
+    const roundByPair = new Map<string, number>();
+    for (const pair of roundRobinPairs(teams)) {
+      roundByPair.set(pairKey(pair.home, pair.away), pair.round);
+    }
+    for (const match of groupMatches) {
+      rebuilt.push({
+        ...match,
+        round: roundByPair.get(pairKey(match.homeTeamName, match.awayTeamName)) ?? match.round,
+      });
+    }
+  }
+  return [...rebuilt, ...others];
+}

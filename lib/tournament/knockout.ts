@@ -91,6 +91,23 @@ export function pairQualified(qualified: QualifiedTeam[]): [string, string][] {
   return pairs;
 }
 
+export function pairBySeed(teamNames: string[]): [string, string][] {
+  const names = teamNames.filter(Boolean);
+  if (names.length < 2 || names.length % 2 !== 0) return [];
+  const pairs: [string, string][] = [];
+  for (let i = 0; i < names.length / 2; i++) {
+    pairs.push([names[i], names[names.length - 1 - i]]);
+  }
+  return pairs;
+}
+
+export function qualifiedFromTable(standings: StandingRow[], count: number): QualifiedTeam[] {
+  return standings.slice(0, count).map((row, index) => ({
+    teamName: row.teamName,
+    groupName: row.groupName ?? "General",
+    rank: index + 1,
+  }));
+}
 export function generateKnockoutMatches(pairs: [string, string][]): UnscheduledMatch[] {
   const round = knockoutRoundFor(pairs.length * 2);
   if (!round) return [];
