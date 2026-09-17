@@ -70,7 +70,6 @@ export default async function TournamentPage({
           <>
             <StatusBadge status={tournament.status} />
             <ExportExcelButton tournamentId={id} />
-            <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
           </>
         }
         description={tournament.description}
@@ -81,6 +80,9 @@ export default async function TournamentPage({
         registrationFee={tournament.registrationFee}
         query={filter.query}
       />
+      <div className="mb-6">
+        <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
+      </div>
       <TournamentFilterNote query={filter.query} labels={filter.labels} found={filter.found} path={`/torneos/${id}`} />
       <TournamentInfo
         tournamentId={id}

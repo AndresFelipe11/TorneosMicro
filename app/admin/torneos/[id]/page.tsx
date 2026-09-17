@@ -113,13 +113,17 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
             Editar equipos
           </Link>
           <ExportExcelButton tournamentId={id} />
-          <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
           {(tournament.format === "GROUPS" || tournament.format === "ROUND_ROBIN") &&
           tournament.nextPhase !== "NONE" ? (
             <AdvanceButton tournamentId={id} />
           ) : null}
           <FinishButton tournamentId={id} />
           {isGlobalAdmin(admin) ? <DeleteTournamentButton tournamentId={id} /> : null}
+        </div>
+      ) : null}
+      {manage ? (
+        <div className="mb-6">
+          <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
         </div>
       ) : null}
       {manage && tournament.format === "ROUND_ROBIN" ? (

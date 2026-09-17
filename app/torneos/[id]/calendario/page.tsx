@@ -23,11 +23,11 @@ export default async function CalendarPage({
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="display text-4xl">{tournament.name}</h1>
-      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between">
-        <p className="text-muted">Calendario generado según las fechas y los días de juego.</p>
+      <p className="mb-4 text-muted">Calendario generado según las fechas y los días de juego.</p>
+      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} registrationFee={tournament.registrationFee} query={filter.query} />
+      <div className="mb-6">
         <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
       </div>
-      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} registrationFee={tournament.registrationFee} query={filter.query} />
       <TournamentFilterNote query={filter.query} labels={filter.labels} found={filter.found} path={`/torneos/${id}/calendario`} />
       <MatchList
         matches={tournament.matches}

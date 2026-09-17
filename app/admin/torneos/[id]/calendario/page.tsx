@@ -27,6 +27,9 @@ export default async function AdminCalendarPage({ params }: { params: Promise<{ 
         Los ya jugados no se tocan.
       </p>
       <TournamentTabs id={id} admin />
+      <div className="mb-6">
+        <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
+      </div>
       <ScheduleEditor
         tournamentId={tournament.id}
         finished={tournament.status === "FINISHED"}
@@ -57,10 +60,7 @@ export default async function AdminCalendarPage({ params }: { params: Promise<{ 
           scheduledAt: match.scheduledAt.toISOString(),
         }))}
       />
-      <div className="mb-3 mt-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <h2 className="display text-2xl">Partidos</h2>
-        <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
-      </div>
+      <h2 className="display mb-3 mt-8 text-2xl">Partidos</h2>
       <MatchList
         matches={tournament.matches}
         hrefFor={(matchId) => `/admin/torneos/${id}/partidos/${matchId}`}

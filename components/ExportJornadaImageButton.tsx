@@ -192,10 +192,8 @@ async function drawPoster(poster: JornadaPoster) {
 
 export function ExportJornadaImageButton({
   pack,
-  className = "btn btn-dark w-full sm:w-auto",
 }: {
   pack: JornadaPosterPack | null;
-  className?: string;
 }) {
   const posters = pack?.posters ?? [];
   const [round, setRound] = useState(pack?.defaultRound ?? posters[0]?.round ?? 1);
@@ -209,14 +207,18 @@ export function ExportJornadaImageButton({
   if (!pack || posters.length === 0 || !poster) return null;
 
   return (
-    <div className="space-y-2">
+    <section className="card space-y-3 p-4 sm:p-5">
+      <div>
+        <h2 className="display text-xl sm:text-2xl">Descargar imagen de la jornada</h2>
+        <p className="text-sm text-muted">Elige la fecha y baja el afiche con los partidos para WhatsApp o Instagram.</p>
+      </div>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <label className="sr-only" htmlFor={`jornada-poster-${poster.filename}`}>
           Jornada
         </label>
         <select
           id={`jornada-poster-${poster.filename}`}
-          className="field w-full sm:w-auto sm:min-w-[11rem]"
+          className="field w-full sm:max-w-xs"
           disabled={pending}
           value={poster.round}
           onChange={(event) => setRound(Number(event.target.value))}
@@ -229,7 +231,7 @@ export function ExportJornadaImageButton({
           ))}
         </select>
         <button
-          className={className}
+          className="btn btn-lime w-full sm:w-auto"
           disabled={pending}
           type="button"
           onClick={() => {
@@ -256,6 +258,6 @@ export function ExportJornadaImageButton({
         </button>
       </div>
       {error ? <p className="text-sm font-semibold text-red-400">{error}</p> : null}
-    </div>
+    </section>
   );
 }
