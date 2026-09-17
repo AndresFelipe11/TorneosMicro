@@ -47,7 +47,7 @@ export default async function TeamPage({
         {team.group?.name ? `${team.group.name} · ` : ""}
         {tournament.name}
       </p>
-      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} registrationFee={tournament.registrationFee} query={filter.query} />
+      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} query={filter.query} />
 
       <section className="card mb-6 p-5">
         <h2 className="display text-2xl">Plantilla</h2>

@@ -26,10 +26,10 @@ export default async function AdminCalendarPage({ params }: { params: Promise<{ 
         reprograman los partidos pendientes, dejando días de descanso entre partidos del mismo equipo.
         Los ya jugados no se tocan.
       </p>
-      <TournamentTabs id={id} admin />
       <div className="mb-6">
         <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
       </div>
+      <TournamentTabs id={id} admin />
       <ScheduleEditor
         tournamentId={tournament.id}
         finished={tournament.status === "FINISHED"}

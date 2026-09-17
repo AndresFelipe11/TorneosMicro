@@ -27,7 +27,7 @@ export default async function TeamsPage({
     <div className="mx-auto max-w-4xl px-4 py-8">
       <h1 className="display text-4xl">{tournament.name}</h1>
       <p className="mb-4 text-muted">Plantillas, tabla y próximo partido de cada equipo.</p>
-      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} registrationFee={tournament.registrationFee} query={filter.query} />
+      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} query={filter.query} />
       <TournamentFilterNote
         query={filter.query}
         labels={filter.labels}

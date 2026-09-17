@@ -90,6 +90,11 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
         actions={<StatusBadge status={tournament.status} />}
         description={manage ? undefined : tournament.description}
       />
+      {manage ? (
+        <div className="mb-6">
+          <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
+        </div>
+      ) : null}
       <TournamentTabs id={id} admin scorekeeper={isScorekeeper(admin)} />
       {manage ? null : (
         <TournamentInfo
@@ -119,11 +124,6 @@ export default async function AdminTournamentPage({ params }: { params: Promise<
           ) : null}
           <FinishButton tournamentId={id} />
           {isGlobalAdmin(admin) ? <DeleteTournamentButton tournamentId={id} /> : null}
-        </div>
-      ) : null}
-      {manage ? (
-        <div className="mb-6">
-          <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
         </div>
       ) : null}
       {manage && tournament.format === "ROUND_ROBIN" ? (

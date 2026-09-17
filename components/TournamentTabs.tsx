@@ -4,7 +4,6 @@ import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SearchBar } from "@/components/SearchBar";
-import { OpenRegistrationBanner } from "@/components/OpenRegistrationBanner";
 
 export function TournamentTabs({
   id,
@@ -12,14 +11,12 @@ export function TournamentTabs({
   registrationOpen = false,
   scorekeeper = false,
   query,
-  registrationFee,
 }: {
   id: string;
   admin?: boolean;
   registrationOpen?: boolean;
   scorekeeper?: boolean;
   query?: string;
-  registrationFee?: string | null;
 }) {
   const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
@@ -51,15 +48,11 @@ export function TournamentTabs({
         { href: `${base}/valla`, label: "Valla" },
         { href: `${base}/equipos`, label: "Equipos" },
       ];
-  const showBanner = !admin && registrationOpen && pathname !== registerHref;
-
   return (
     <div className="mb-6">
-      {showBanner ? <OpenRegistrationBanner href={registerHref} fee={registrationFee} /> : null}
       <div className="-mx-4 mb-4 overflow-x-auto px-4 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex w-max gap-2">
           {tabs.map((tab) => {
-            const isRegister = tab.href === registerHref;
             const active =
               mounted &&
               (pathname === tab.href ||
@@ -69,7 +62,7 @@ export function TournamentTabs({
                 key={tab.href}
                 href={`${tab.href}${suffix}`}
                 className={`shrink-0 rounded-full px-4 py-2 text-sm font-bold no-underline ${
-                  active || isRegister ? "bg-lime text-pitch" : "bg-card text-cream"
+                  active ? "bg-lime text-pitch" : "bg-card text-cream"
                 }`}
               >
                 {tab.label}

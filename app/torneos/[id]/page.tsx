@@ -74,15 +74,14 @@ export default async function TournamentPage({
         }
         description={tournament.description}
       />
-      <TournamentTabs
-        id={id}
-        registrationOpen={registrationIsOpen(tournament)}
-        registrationFee={tournament.registrationFee}
-        query={filter.query}
-      />
       <div className="mb-6">
         <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
       </div>
+      <TournamentTabs
+        id={id}
+        registrationOpen={registrationIsOpen(tournament)}
+        query={filter.query}
+      />
       <TournamentFilterNote query={filter.query} labels={filter.labels} found={filter.found} path={`/torneos/${id}`} />
       <TournamentInfo
         tournamentId={id}

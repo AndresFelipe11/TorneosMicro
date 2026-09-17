@@ -16,7 +16,7 @@ export default async function RegisterTeamPage({ params }: { params: Promise<{ i
       <TournamentHeading
         src={tournament.coverImage}
         name={tournament.name}
-        details={<p>Inscribe tu equipo.</p>}
+        details={<p>Formulario de inscripción.</p>}
         description={tournament.description}
       />
       <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} />

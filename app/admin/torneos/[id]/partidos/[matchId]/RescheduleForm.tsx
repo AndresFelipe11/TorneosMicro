@@ -50,9 +50,8 @@ export function RescheduleForm({
   }
 
   return (
-    <div className="card space-y-4 p-5">
+    <div className="space-y-4">
       <div>
-        <h2 className="display text-2xl">Reprogramar partido</h2>
         <p className="text-sm text-muted">
           Si {homeTeam} o {awayTeam} no pueden en la fecha actual, elige otra. Puede ser un día
           distinto a los días habituales del torneo. No se permite si alguno ya tiene otro partido

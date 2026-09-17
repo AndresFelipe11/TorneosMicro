@@ -19,22 +19,34 @@ export default async function CalendarPage({
   const tournament = await getTournament(id);
   if (!tournament) notFound();
   const filter = tournamentFilter(tournament, q);
+  const matches = filter.found
+    ? tournament.matches.filter(
+        (match) =>
+          filter.teamIds.includes(match.homeTeamId) || filter.teamIds.includes(match.awayTeamId),
+      )
+    : filter.active
+      ? []
+      : tournament.matches;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="display text-4xl">{tournament.name}</h1>
       <p className="mb-4 text-muted">Calendario generado según las fechas y los días de juego.</p>
-      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} registrationFee={tournament.registrationFee} query={filter.query} />
       <div className="mb-6">
         <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
       </div>
+      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} query={filter.query} />
       <TournamentFilterNote query={filter.query} labels={filter.labels} found={filter.found} path={`/torneos/${id}/calendario`} />
-      <MatchList
-        matches={tournament.matches}
-        hrefFor={(matchId) => `/torneos/${id}/partidos/${matchId}`}
-        tournamentVenue={tournament.venue}
-        highlightTeamIds={filter.teamIds}
-      />
+      {filter.active && !filter.found ? null : filter.found && matches.length === 0 ? (
+        <p className="text-muted">Ese equipo no tiene partidos en el calendario.</p>
+      ) : (
+        <MatchList
+          matches={matches}
+          hrefFor={(matchId) => `/torneos/${id}/partidos/${matchId}`}
+          tournamentVenue={tournament.venue}
+          highlightTeamIds={filter.teamIds}
+        />
+      )}
     </div>
   );
 }

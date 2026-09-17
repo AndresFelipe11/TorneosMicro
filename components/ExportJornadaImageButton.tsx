@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import type { JornadaPosterPack } from "@/lib/tournament/jornada";
+import { useEffect, useMemo, useState } from "react";
+import type { JornadaPoster, JornadaPosterPack } from "@/lib/tournament/jornada";
 
 const W = 1080;
 const GOLD = "#f0b429";
@@ -190,6 +190,10 @@ async function drawPoster(poster: JornadaPoster) {
   });
 }
 
+function closePreview(preview: { url: string } | null) {
+  if (preview) URL.revokeObjectURL(preview.url);
+}
+
 export function ExportJornadaImageButton({
   pack,
 }: {
@@ -199,25 +203,60 @@ export function ExportJornadaImageButton({
   const [round, setRound] = useState(pack?.defaultRound ?? posters[0]?.round ?? 1);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ url: string; file: File } | null>(null);
   const poster = useMemo(
     () => posters.find((item) => item.round === round) ?? posters[0] ?? null,
     [posters, round],
   );
+  const visible = Boolean(pack && posters.length > 0 && poster);
 
-  if (!pack || posters.length === 0 || !poster) return null;
+  useEffect(() => {
+    if (!visible) return;
+    document.body.classList.add("has-jornada-bar");
+    return () => document.body.classList.remove("has-jornada-bar");
+  }, [visible]);
 
-  return (
-    <section className="card space-y-3 p-4 sm:p-5">
-      <div>
-        <h2 className="display text-xl sm:text-2xl">Descargar imagen de la jornada</h2>
-        <p className="text-sm text-muted">Elige la fecha y baja el afiche con los partidos para WhatsApp o Instagram.</p>
-      </div>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <label className="sr-only" htmlFor={`jornada-poster-${poster.filename}`}>
+  useEffect(() => () => closePreview(preview), [preview]);
+
+  if (!visible || !poster) return null;
+
+  function downloadNow() {
+    setError(null);
+    setPending(true);
+    void (async () => {
+      try {
+        const blob = await drawPoster(poster);
+        const file = new File([blob], poster.filename, { type: "image/png" });
+        const url = URL.createObjectURL(blob);
+        const mobile = window.matchMedia("(max-width: 639px)").matches;
+        if (mobile) {
+          setPreview({ url, file });
+          return;
+        }
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = poster.filename;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      } catch {
+        setError("No se pudo descargar la imagen.");
+      } finally {
+        setPending(false);
+      }
+    })();
+  }
+
+  function picker(suffix: string) {
+    const selectId = `jornada-poster-${poster.filename}-${suffix}`;
+    return (
+      <>
+        <label className="sr-only" htmlFor={selectId}>
           Jornada
         </label>
         <select
-          id={`jornada-poster-${poster.filename}`}
+          id={selectId}
           className="field w-full sm:max-w-xs"
           disabled={pending}
           value={poster.round}
@@ -230,34 +269,69 @@ export function ExportJornadaImageButton({
             </option>
           ))}
         </select>
-        <button
-          className="btn btn-lime w-full sm:w-auto"
-          disabled={pending}
-          type="button"
-          onClick={() => {
-            setError(null);
-            setPending(true);
-            void (async () => {
-              try {
-                const blob = await drawPoster(poster);
-                const url = URL.createObjectURL(blob);
-                const link = document.createElement("a");
-                link.href = url;
-                link.download = poster.filename;
-                link.click();
-                URL.revokeObjectURL(url);
-              } catch {
-                setError("No se pudo descargar la imagen.");
-              } finally {
-                setPending(false);
-              }
-            })();
-          }}
-        >
+        <button className="btn btn-lime w-full sm:w-auto" disabled={pending} type="button" onClick={downloadNow}>
           {pending ? "Preparando..." : "Descargar imagen"}
         </button>
+      </>
+    );
+  }
+
+  return (
+    <>
+      <section id="descargar-jornada" className="mb-6 hidden rounded-3xl border-2 border-lime bg-lime/15 p-5 sm:block">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-lime">Afiche para redes</p>
+        <h2 className="display mt-1 text-2xl leading-tight sm:text-3xl">Descargar jornada</h2>
+        <p className="mt-1 text-sm text-cream/85">
+          Elige la fecha y baja la imagen con los partidos para WhatsApp o Instagram.
+        </p>
+        <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">{picker("desktop")}</div>
+        {error ? <p className="mt-3 text-sm font-semibold text-red-400">{error}</p> : null}
+      </section>
+
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-lime bg-[#0c1020] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
+        <p className="mb-2 text-center text-xs font-bold uppercase tracking-[0.18em] text-lime">
+          Descargar jornada
+        </p>
+        <div className="flex flex-col gap-2">{picker("mobile")}</div>
+        {error ? <p className="mt-2 text-center text-sm font-semibold text-red-400">{error}</p> : null}
       </div>
-      {error ? <p className="text-sm font-semibold text-red-400">{error}</p> : null}
-    </section>
+
+      {preview ? (
+        <div className="fixed inset-0 z-[70] flex flex-col bg-black/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
+          <img
+            src={preview.url}
+            alt={`Jornada ${poster.round}`}
+            className="min-h-0 w-full flex-1 object-contain"
+          />
+          <p className="mt-3 text-center text-sm text-cream/90">
+            Mantén pulsada la imagen para guardarla en el celular.
+          </p>
+          <div className="mt-3 flex flex-col gap-2">
+            <button
+              className="btn btn-lime w-full"
+              type="button"
+              onClick={() => {
+                const data = { files: [preview.file], title: preview.file.name };
+                if (navigator.share && (!navigator.canShare || navigator.canShare(data))) {
+                  void navigator.share(data).catch(() => undefined);
+                  return;
+                }
+                const link = document.createElement("a");
+                link.href = preview.url;
+                link.download = preview.file.name;
+                document.body.appendChild(link);
+                link.click();
+                link.remove();
+              }}
+            >
+              Compartir imagen
+            </button>
+            <button className="btn btn-dark w-full" type="button" onClick={() => setPreview(null)}>
+              Cerrar
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

@@ -24,7 +24,7 @@ export default async function DefensePage({
       <p className="mb-4 text-muted">
         Valla menos vencida: menos goles en contra. Desempate por partidos jugados.
       </p>
-      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} registrationFee={tournament.registrationFee} query={filter.query} />
+      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} query={filter.query} />
       <TournamentFilterNote query={filter.query} labels={filter.labels} found={filter.found} path={`/torneos/${id}/valla`} />
       <DefenseTable rows={defenseFor(tournament)} highlightTeamIds={filter.teamIds} tournamentId={id} />
     </div>

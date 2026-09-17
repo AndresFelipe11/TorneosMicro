@@ -192,4 +192,12 @@ td {
     font-size: clamp(1.7rem, 8vw, 2.25rem);
     line-height: 1.1;
   }
+
+  body.has-jornada-bar {
+    padding-bottom: calc(8.5rem + env(safe-area-inset-bottom));
+  }
+
+  body.has-result-bar {
+    padding-bottom: calc(5.75rem + env(safe-area-inset-bottom));
+  }
 }

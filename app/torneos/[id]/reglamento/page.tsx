@@ -23,7 +23,7 @@ export default async function TournamentRulesPage({ params }: { params: Promise<
         name={tournament.name}
         details={<p>Reglamento del torneo.</p>}
       />
-      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} registrationFee={tournament.registrationFee} />
+      <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} />
       <section className="card p-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <h2 className="display text-2xl">Reglamento</h2>

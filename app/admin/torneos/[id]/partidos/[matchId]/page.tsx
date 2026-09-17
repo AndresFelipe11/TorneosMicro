@@ -45,23 +45,8 @@ export default async function AdminMatchPage({
         {match.knockoutRound ? ` · ${knockoutLabel(match.knockoutRound)}` : ` · Jornada ${match.round}`}
         {displayVenue(match.venue, tournament.venue) ? ` · ${displayVenue(match.venue, tournament.venue)}` : ""}
       </p>
-      <h1 className="display mb-5">
-        <span className="block sm:inline">{match.homeTeam.name}</span>
-        <span className="hidden sm:inline"> vs </span>
-        <span className="my-1 block text-muted sm:hidden">vs</span>
-        <span className="block sm:inline">{match.awayTeam.name}</span>
-      </h1>
+      <h1 className="mb-5 text-sm font-bold uppercase tracking-wide text-muted">Cargar resultado</h1>
       <div className="space-y-6">
-        {canSchedule && match.status === "SCHEDULED" ? (
-          <RescheduleForm
-            matchId={match.id}
-            homeTeam={match.homeTeam.name}
-            awayTeam={match.awayTeam.name}
-            currentScheduledAt={match.scheduledAt}
-            initialLocal={toBogotaDateTimeLocal(match.scheduledAt)}
-            venue={displayVenue(match.venue, tournament.venue)}
-          />
-        ) : null}
         <ResultForm
           key={`${match.status}-${match.homeScore}-${match.awayScore}-${match.cards.length}-${match.goals.length}`}
           matchId={match.id}
@@ -96,6 +81,21 @@ export default async function AdminMatchPage({
             scoresheet: match.scoresheet,
           }}
         />
+        {canSchedule && match.status === "SCHEDULED" ? (
+          <details className="card p-4 sm:p-5">
+            <summary className="cursor-pointer text-sm font-bold">Reprogramar partido</summary>
+            <div className="mt-4">
+              <RescheduleForm
+                matchId={match.id}
+                homeTeam={match.homeTeam.name}
+                awayTeam={match.awayTeam.name}
+                currentScheduledAt={match.scheduledAt}
+                initialLocal={toBogotaDateTimeLocal(match.scheduledAt)}
+                venue={displayVenue(match.venue, tournament.venue)}
+              />
+            </div>
+          </details>
+        ) : null}
         <ResultAuditLog logs={resultLogs} />
       </div>
     </div>
