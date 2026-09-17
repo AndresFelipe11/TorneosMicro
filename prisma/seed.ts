@@ -37,6 +37,7 @@ async function main() {
     nextPhase: "KNOCKOUT",
     playingDays: [0, 6],
     maxMatchesPerDay: 4,
+    minDaysBetweenMatches: 3,
     matchDurationMinutes: 40,
     startTime: "09:00",
     teams: [
@@ -69,6 +70,7 @@ async function main() {
         nextPhase: "KNOCKOUT",
         playingDays: [0, 6],
         maxMatchesPerDay: 4,
+        minDaysBetweenMatches: 3,
         matchDurationMinutes: 40,
         startTime: "09:00",
       },

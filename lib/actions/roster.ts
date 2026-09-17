@@ -5,7 +5,7 @@ import { MatchPhase } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireTournamentMutation } from "@/lib/authz";
 import { getTournament } from "@/lib/queries";
-import { scheduleMatches } from "@/lib/tournament/schedule";
+import { scheduleMatches, scheduleOptionsFrom } from "@/lib/tournament/schedule";
 import { scheduleFromDate, startOfNextWeekBogota, toBogotaDateString } from "@/lib/tournament/dates";
 import type { MatchPhase as Phase, UnscheduledMatch } from "@/lib/tournament/types";
 import { hasTournamentStarted, venueOrNull } from "@/lib/tournament/match";
@@ -176,15 +176,11 @@ export async function addTeamToTournament(input: {
       ? { matches: [], error: undefined as string | undefined }
       : scheduleMatches(
           unscheduled,
-          {
+          scheduleOptionsFrom(tournament, {
             startDate: dateField(tournament.startDate),
             endDate: dateField(tournament.endDate),
-            playingDays: tournament.playingDays,
-            maxMatchesPerDay: tournament.maxMatchesPerDay,
-            matchDurationMinutes: tournament.matchDurationMinutes,
-            startTime: tournament.startTime,
             fromDate: started ? startOfNextWeekBogota() : scheduleFromDate(dateField(tournament.startDate)),
-          },
+          }),
           occupied,
         );
 

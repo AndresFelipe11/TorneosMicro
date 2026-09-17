@@ -19,6 +19,7 @@ export type TournamentConfig = {
   nextPhase?: NextPhase;
   playingDays: number[];
   maxMatchesPerDay: number;
+  minDaysBetweenMatches?: number;
   matchDurationMinutes: number;
   startTime: string;
   venue?: string;

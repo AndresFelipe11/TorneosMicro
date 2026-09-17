@@ -78,6 +78,7 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
       ["Reglas importantes", tournament.rulesHighlights ?? "—"],
       ["Reglamento", tournament.rules ?? "—"],
       ["Partidos por día", tournament.maxMatchesPerDay],
+      ["Días entre partidos del mismo equipo", tournament.minDaysBetweenMatches],
       ["Duración (min)", tournament.matchDurationMinutes],
       ["Siguiente fase", tournament.format === "GROUPS" ? nextPhaseLabel(tournament.nextPhase) : "—"],
       ["Equipos", tournament.teams.length],

@@ -77,6 +77,27 @@ export function nextDateString(isoDate: string): string {
   return `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}`;
 }
 
+export function daysBetweenKeys(a: string, b: string): number {
+  const [ay, am, ad] = a.split("-").map(Number);
+  const [by, bm, bd] = b.split("-").map(Number);
+  const start = Date.UTC(ay, am - 1, ad);
+  const end = Date.UTC(by, bm - 1, bd);
+  return Math.round(Math.abs(end - start) / 86_400_000);
+}
+
+export function clampMinDaysBetweenMatches(value?: number | null) {
+  if (value == null || Number.isNaN(value)) return 3;
+  return Math.min(14, Math.max(1, Math.round(value)));
+}
+
+export function teamNeedsRest(playedDays: Iterable<string>, candidateDay: string, minDays: number) {
+  const gap = clampMinDaysBetweenMatches(minDays);
+  for (const played of playedDays) {
+    if (daysBetweenKeys(played, candidateDay) < gap) return true;
+  }
+  return false;
+}
+
 export function suggestedPostponeLocal(
   matchAt: Date,
   window?: "SAME_DAY" | "TOMORROW" | "THIS_WEEK" | "NEXT_WEEK" | null,

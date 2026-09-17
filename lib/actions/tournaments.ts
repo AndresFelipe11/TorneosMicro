@@ -5,15 +5,15 @@ import { redirect } from "next/navigation";
 import { KnockoutRound, MatchPhase, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { canManageTournament, requireGlobalMutation, requireMatchResultMutation, requireTournamentMutation } from "@/lib/authz";
-import { dayKey, fromBogotaDateTimeLocal, parseLocalDate, scheduleFromDate, toBogotaDateString } from "@/lib/tournament/dates";
+import { clampMinDaysBetweenMatches, dayKey, fromBogotaDateTimeLocal, parseLocalDate, scheduleFromDate, teamNeedsRest, toBogotaDateString } from "@/lib/tournament/dates";
 import { generateRoundRobin } from "@/lib/tournament/roundRobin";
-import { scheduleMatches } from "@/lib/tournament/schedule";
+import { scheduleMatches, scheduleOptionsFrom } from "@/lib/tournament/schedule";
 import { generateKnockoutMatches, generateNextKnockout, pairQualified, qualifiedFromStandings } from "@/lib/tournament/knockout";
 import { validateConfig, withDistributedGroups } from "@/lib/tournament/generate";
 import type { GeneratedMatch, TournamentConfig, UnscheduledMatch } from "@/lib/tournament/types";
 import { getTournament, standingsFor } from "@/lib/queries";
 import { readScoresheetFile } from "@/lib/scoresheet";
-import { isClosedMatch, venueOrNull, WALKOVER_GOALS, hasTournamentStarted } from "@/lib/tournament/match";
+import { isClosedMatch, venueOrNull, WALKOVER_GOALS } from "@/lib/tournament/match";
 import { teamName } from "@/lib/format";
 
 function revalidateTournament(id: string) {
@@ -57,6 +57,7 @@ export async function createTournamentAction(input: {
         nextPhase: config.format === "GROUPS" ? (config.nextPhase ?? "NONE") : "NONE",
         playingDays: config.playingDays,
         maxMatchesPerDay: config.maxMatchesPerDay,
+        minDaysBetweenMatches: clampMinDaysBetweenMatches(config.minDaysBetweenMatches),
         matchDurationMinutes: config.matchDurationMinutes,
         startTime: config.startTime,
         venue: venueOrNull(config.venue),
@@ -141,6 +142,7 @@ function scheduleConfigFrom(input: {
   endDate: string;
   playingDays: number[];
   maxMatchesPerDay: number;
+  minDaysBetweenMatches: number;
   matchDurationMinutes: number;
   startTime: string;
 }):
@@ -150,17 +152,22 @@ function scheduleConfigFrom(input: {
       endDate: string;
       playingDays: number[];
       maxMatchesPerDay: number;
+      minDaysBetweenMatches: number;
       matchDurationMinutes: number;
       startTime: string;
     } {
   const playingDays = [...new Set(input.playingDays)].filter((day) => day >= 0 && day <= 6).sort((a, b) => a - b);
   const startTime = input.startTime.trim();
+  const minDays = clampMinDaysBetweenMatches(input.minDaysBetweenMatches);
   if (!/^\d{2}:\d{2}$/.test(startTime)) return { error: "La hora de inicio no es válida." };
   if (!input.startDate || !input.endDate) return { error: "Indica las fechas de inicio y fin." };
   if (input.endDate < input.startDate) return { error: "La fecha de fin no puede ser anterior al inicio." };
   if (playingDays.length === 0) return { error: "Elige al menos un día de juego." };
   if (input.maxMatchesPerDay < 1 || input.maxMatchesPerDay > 12) {
     return { error: "Los partidos por día deben estar entre 1 y 12." };
+  }
+  if (input.minDaysBetweenMatches < 1 || input.minDaysBetweenMatches > 14) {
+    return { error: "Los días de descanso entre partidos deben estar entre 1 y 14." };
   }
   if (input.matchDurationMinutes < 20 || input.matchDurationMinutes > 90) {
     return { error: "La duración debe estar entre 20 y 90 minutos." };
@@ -170,12 +177,13 @@ function scheduleConfigFrom(input: {
     endDate: input.endDate,
     playingDays,
     maxMatchesPerDay: input.maxMatchesPerDay,
+    minDaysBetweenMatches: minDays,
     matchDurationMinutes: input.matchDurationMinutes,
     startTime,
   };
 }
 
-function sameDayTeamConflict(
+function restDaysTeamConflict(
   others: {
     homeTeam: { id: string; name: string };
     awayTeam: { id: string; name: string };
@@ -184,17 +192,19 @@ function sameDayTeamConflict(
   homeTeam: { id: string; name: string },
   awayTeam: { id: string; name: string },
   when: Date,
+  minDaysBetweenMatches: number,
 ) {
   const key = dayKey(when);
+  const minDays = clampMinDaysBetweenMatches(minDaysBetweenMatches);
   const clash = others.find((match) => {
-    if (dayKey(match.scheduledAt) !== key) return false;
     const ids = [match.homeTeam.id, match.awayTeam.id];
-    return ids.includes(homeTeam.id) || ids.includes(awayTeam.id);
+    if (!ids.includes(homeTeam.id) && !ids.includes(awayTeam.id)) return false;
+    return teamNeedsRest([dayKey(match.scheduledAt)], key, minDays);
   });
   if (!clash) return null;
-  const teamName =
+  const involved =
     clash.homeTeam.id === homeTeam.id || clash.awayTeam.id === homeTeam.id ? homeTeam.name : awayTeam.name;
-  return `${teamName} ya tiene partido ese día: ${clash.homeTeam.name} vs ${clash.awayTeam.name}.`;
+  return `${involved} ya tiene partido el ${dayKey(clash.scheduledAt)} y necesita ${minDays} días de separación (si juega lunes, puede volver el jueves).`;
 }
 
 export async function updateTournamentScheduleAction(input: {
@@ -203,6 +213,7 @@ export async function updateTournamentScheduleAction(input: {
   endDate: string;
   playingDays: number[];
   maxMatchesPerDay: number;
+  minDaysBetweenMatches: number;
   matchDurationMinutes: number;
   startTime: string;
   venue?: string | null;
@@ -216,7 +227,6 @@ export async function updateTournamentScheduleAction(input: {
   const config = scheduleConfigFrom(input);
   if ("error" in config) return { error: config.error };
 
-  const started = hasTournamentStarted(tournament);
   const pending = tournament.matches.filter((match) => match.status === "SCHEDULED");
   const occupied = tournament.matches
     .filter((match) => isClosedMatch(match.status))
@@ -226,17 +236,15 @@ export async function updateTournamentScheduleAction(input: {
       scheduledAt: match.scheduledAt,
     }));
 
-  const unscheduled: UnscheduledMatch[] = started
-    ? []
-    : pending.map((match) => ({
-        id: match.id,
-        homeTeamName: match.homeTeam.name,
-        awayTeamName: match.awayTeam.name,
-        phase: match.phase,
-        round: match.round,
-        groupName: match.group?.name,
-        knockoutRound: match.knockoutRound ?? undefined,
-      }));
+  const unscheduled: UnscheduledMatch[] = pending.map((match) => ({
+    id: match.id,
+    homeTeamName: match.homeTeam.name,
+    awayTeamName: match.awayTeam.name,
+    phase: match.phase,
+    round: match.round,
+    groupName: match.group?.name,
+    knockoutRound: match.knockoutRound ?? undefined,
+  }));
 
   const scheduled =
     unscheduled.length === 0
@@ -260,6 +268,7 @@ export async function updateTournamentScheduleAction(input: {
         endDate: parseLocalDate(config.endDate),
         playingDays: config.playingDays,
         maxMatchesPerDay: config.maxMatchesPerDay,
+        minDaysBetweenMatches: config.minDaysBetweenMatches,
         matchDurationMinutes: config.matchDurationMinutes,
         startTime: config.startTime,
         venue: venueOrNull(input.venue),
@@ -289,11 +298,10 @@ export async function updateTournamentScheduleAction(input: {
   return {
     ok: true,
     moved: scheduled.matches.length,
-    message: started
-      ? "Se guardaron los días de juego. El torneo ya inició, así que los partidos no se movieron. Reprograma cada uno a mano si hace falta."
-      : scheduled.matches.length === 0
+    message:
+      scheduled.matches.length === 0
         ? "Se actualizaron los días de juego. No había partidos pendientes por mover."
-        : `Se reprogramaron ${scheduled.matches.length} partidos pendientes, incluida esa misma semana.`,
+        : `Se reprogramaron ${scheduled.matches.length} partidos pendientes, dejando ${config.minDaysBetweenMatches} días entre partidos del mismo equipo.`,
   };
 }
 
@@ -329,11 +337,12 @@ export async function rescheduleMatchAction(input: {
     return { error: "Ese partido ya tiene resultado. Anúlalo primero si necesitas cambiar la fecha." };
   }
 
-  const conflict = sameDayTeamConflict(
+  const conflict = restDaysTeamConflict(
     match.tournament.matches.filter((item) => item.id !== match.id),
     match.homeTeam,
     match.awayTeam,
     when,
+    match.tournament.minDaysBetweenMatches,
   );
   if (conflict) return { error: conflict };
 
@@ -709,17 +718,16 @@ export async function advancePhaseAction(tournamentId: string) {
         "QUADRANGULAR",
       );
       const fromDate = lastMatchDate(groupMatches.map((match) => match.scheduledAt));
-      const scheduled = scheduleMatches(unscheduled, {
-        startDate: toDateInput(fromDate),
-        endDate: toDateInput(tournament.endDate) > toDateInput(fromDate)
-          ? toDateInput(tournament.endDate)
-          : toDateInput(new Date(fromDate.getTime() + 1000 * 60 * 60 * 24 * 28)),
-        playingDays: tournament.playingDays,
-        maxMatchesPerDay: tournament.maxMatchesPerDay,
-        matchDurationMinutes: tournament.matchDurationMinutes,
-        startTime: tournament.startTime,
-        fromDate: new Date(fromDate.getTime() + 1000 * 60 * 60 * 24),
-      });
+      const scheduled = scheduleMatches(
+        unscheduled,
+        scheduleOptionsFrom(tournament, {
+          startDate: toDateInput(fromDate),
+          endDate: toDateInput(tournament.endDate) > toDateInput(fromDate)
+            ? toDateInput(tournament.endDate)
+            : toDateInput(new Date(fromDate.getTime() + 1000 * 60 * 60 * 24 * 28)),
+          fromDate: new Date(fromDate.getTime() + 1000 * 60 * 60 * 24),
+        }),
+      );
       if (scheduled.error) return { error: scheduled.error };
       const teamIds = new Map(tournament.teams.map((team) => [team.name, team.id]));
       await prisma.match.createMany({
@@ -751,25 +759,23 @@ export async function advancePhaseAction(tournamentId: string) {
           return { error: "No se pudieron armar las llaves de eliminación." };
         }
         const fromDate = lastMatchDate(groupMatches.map((match) => match.scheduledAt));
-        const scheduled = scheduleMatches(unscheduled, {
-          startDate: toDateInput(fromDate),
-          endDate: toDateInput(tournament.endDate),
-          playingDays: tournament.playingDays,
-          maxMatchesPerDay: tournament.maxMatchesPerDay,
-          matchDurationMinutes: tournament.matchDurationMinutes,
-          startTime: tournament.startTime,
-          fromDate: new Date(fromDate.getTime() + 1000 * 60 * 60 * 24),
-        });
-        if (scheduled.error) {
-          const retry = scheduleMatches(unscheduled, {
+        const scheduled = scheduleMatches(
+          unscheduled,
+          scheduleOptionsFrom(tournament, {
             startDate: toDateInput(fromDate),
-            endDate: toDateInput(new Date(fromDate.getTime() + 1000 * 60 * 60 * 24 * 45)),
-            playingDays: tournament.playingDays,
-            maxMatchesPerDay: tournament.maxMatchesPerDay,
-            matchDurationMinutes: tournament.matchDurationMinutes,
-            startTime: tournament.startTime,
+            endDate: toDateInput(tournament.endDate),
             fromDate: new Date(fromDate.getTime() + 1000 * 60 * 60 * 24),
-          });
+          }),
+        );
+        if (scheduled.error) {
+          const retry = scheduleMatches(
+            unscheduled,
+            scheduleOptionsFrom(tournament, {
+              startDate: toDateInput(fromDate),
+              endDate: toDateInput(new Date(fromDate.getTime() + 1000 * 60 * 60 * 24 * 45)),
+              fromDate: new Date(fromDate.getTime() + 1000 * 60 * 60 * 24),
+            }),
+          );
           if (retry.error) return { error: retry.error };
           scheduled.matches = retry.matches;
           scheduled.error = undefined;
@@ -817,15 +823,14 @@ export async function advancePhaseAction(tournamentId: string) {
         return { ok: true, message: "El torneo quedó finalizado." };
       }
       const fromDate = lastMatchDate(currentRoundMatches.map((match) => match.scheduledAt));
-      const scheduled = scheduleMatches(unscheduled, {
-        startDate: toDateInput(fromDate),
-        endDate: toDateInput(new Date(fromDate.getTime() + 1000 * 60 * 60 * 24 * 30)),
-        playingDays: tournament.playingDays,
-        maxMatchesPerDay: tournament.maxMatchesPerDay,
-        matchDurationMinutes: tournament.matchDurationMinutes,
-        startTime: tournament.startTime,
-        fromDate: new Date(fromDate.getTime() + 1000 * 60 * 60 * 24),
-      });
+      const scheduled = scheduleMatches(
+        unscheduled,
+        scheduleOptionsFrom(tournament, {
+          startDate: toDateInput(fromDate),
+          endDate: toDateInput(new Date(fromDate.getTime() + 1000 * 60 * 60 * 24 * 30)),
+          fromDate: new Date(fromDate.getTime() + 1000 * 60 * 60 * 24),
+        }),
+      );
       if (scheduled.error) return { error: scheduled.error };
       const teamIds = new Map(tournament.teams.map((team) => [team.name, team.id]));
       await prisma.match.createMany({

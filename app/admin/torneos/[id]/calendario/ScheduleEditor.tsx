@@ -14,6 +14,7 @@ type ScheduleDraft = {
   endDate: string;
   playingDays: number[];
   maxMatchesPerDay: number;
+  minDaysBetweenMatches: number;
   matchDurationMinutes: number;
   startTime: string;
   venue: string;
@@ -22,7 +23,6 @@ type ScheduleDraft = {
 export function ScheduleEditor({
   tournamentId,
   finished,
-  started,
   pendingCount,
   playedCount,
   initial,
@@ -31,7 +31,6 @@ export function ScheduleEditor({
 }: {
   tournamentId: string;
   finished: boolean;
-  started: boolean;
   pendingCount: number;
   playedCount: number;
   initial: ScheduleDraft;
@@ -46,14 +45,14 @@ export function ScheduleEditor({
 
   const preview = useMemo(
     () =>
-      started || pending.length === 0
+      pending.length === 0
         ? { matches: [], error: undefined as string | undefined, slotsAvailable: 0, slotsNeeded: 0 }
         : scheduleMatches(
             pending,
             { ...draft, fromDate: scheduleFromDate(draft.startDate) },
             occupied,
           ),
-    [draft, occupied, pending, started],
+    [draft, occupied, pending],
   );
 
   function update<K extends keyof ScheduleDraft>(key: K, value: ScheduleDraft[K]) {
@@ -78,13 +77,12 @@ export function ScheduleEditor({
       return;
     }
     const ok = await ask({
-      title: started ? "Guardar días de juego" : "Aplicar calendario",
-      message: started
-        ? "El torneo ya inició. Se guardan los días de juego, pero los partidos programados no se mueven. Para cambiar uno, entra al partido y reprogramalo a mano."
-        : pendingCount === 0
+      title: "Aplicar calendario",
+      message:
+        pendingCount === 0
           ? "¿Guardar esta configuración del calendario?"
-          : `¿Aplicar el nuevo calendario? Se moverán ${pendingCount} partidos pendientes, incluida esa misma semana. Los ya jugados no se tocan.`,
-      confirmLabel: started ? "Guardar" : "Aplicar",
+          : `¿Aplicar el nuevo calendario? Se moverán ${pendingCount} partidos pendientes, dejando ${draft.minDaysBetweenMatches} días entre partidos del mismo equipo (si juega lunes, puede volver el jueves). Los ya jugados no se tocan.`,
+      confirmLabel: "Aplicar",
     });
     if (!ok) return;
     startTransition(async () => {
@@ -106,9 +104,8 @@ export function ScheduleEditor({
         <div>
           <h2 className="display text-2xl">Días y fechas del torneo</h2>
           <p className="text-sm text-muted">
-            {started
-              ? "El torneo ya inició: puedes guardar los días, pero los partidos no se reprograman solos. Entra a cada uno para cambiarlo a mano."
-              : "Si el torneo no ha empezado, los partidos sin jugar se mueven a las nuevas franjas, incluida esa misma semana."}
+            Los partidos pendientes se mueven a las nuevas franjas. Un equipo no juega tan seguido: con 3
+            días de separación, si juega lunes el siguiente puede ser el jueves.
             {playedCount > 0 ? ` Los ${playedCount} partidos ya jugados no se tocan.` : ""}
           </p>
         </div>
@@ -166,6 +163,19 @@ export function ScheduleEditor({
             />
           </label>
           <label className="block space-y-1">
+            <span className="text-sm font-semibold">Días entre partidos del mismo equipo</span>
+            <input
+              className="field"
+              disabled={finished}
+              max={14}
+              min={1}
+              type="number"
+              value={draft.minDaysBetweenMatches}
+              onChange={(event) => update("minDaysBetweenMatches", Number(event.target.value))}
+            />
+            <span className="text-xs text-muted">3 = si juega lunes, puede volver el jueves.</span>
+          </label>
+          <label className="block space-y-1">
             <span className="text-sm font-semibold">Hora de inicio</span>
             <input
               className="field"
@@ -189,22 +199,21 @@ export function ScheduleEditor({
         </div>
         <p className="text-sm text-muted">
           Los partidos se programan cada hora. Si el primero es a las 7:00, el siguiente queda a las 8:00.
+          Un equipo no vuelve a jugar antes de los días de descanso configurados.
         </p>
         {preview.error ? (
           <p className="font-semibold text-red-400">{preview.error}</p>
         ) : (
           <p className="text-sm text-muted">
-            {started
-              ? "No se moverán partidos. Reprograma cada uno desde su ficha si un equipo no puede."
-              : pendingCount === 0
-                ? "No hay partidos pendientes. Igual puedes dejar lista la configuración para fases nuevas."
-                : `Se moverán ${pendingCount} partidos pendientes a las nuevas franjas (${preview.slotsAvailable} libres), incluida esa misma semana.`}
+            {pendingCount === 0
+              ? "No hay partidos pendientes. Igual puedes dejar lista la configuración para fases nuevas."
+              : `Se moverán ${pendingCount} partidos pendientes a las nuevas franjas (${preview.slotsAvailable} libres).`}
           </p>
         )}
         {error ? <p className="font-semibold text-red-400">{error}</p> : null}
         {message ? <p className="font-semibold text-lime">{message}</p> : null}
         <button className="btn btn-lime" disabled={finished || pendingSave} type="button" onClick={submit}>
-          {pendingSave ? "Guardando..." : started ? "Guardar días de juego" : "Aplicar nuevo calendario"}
+          {pendingSave ? "Guardando..." : "Aplicar nuevo calendario"}
         </button>
       </div>
 

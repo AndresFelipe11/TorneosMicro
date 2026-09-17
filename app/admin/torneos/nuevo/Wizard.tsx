@@ -42,6 +42,7 @@ export function Wizard() {
     nextPhase: "KNOCKOUT",
     playingDays: [0, 6],
     maxMatchesPerDay: 4,
+    minDaysBetweenMatches: 3,
     matchDurationMinutes: 40,
     startTime: "09:00",
     venue: "",
@@ -334,6 +335,17 @@ export function Wizard() {
                 onChange={(e) => update("maxMatchesPerDay", Number(e.target.value))}
               />
             </Field>
+            <Field label="Días entre partidos del mismo equipo">
+              <input
+                className="field"
+                type="number"
+                min={1}
+                max={14}
+                value={config.minDaysBetweenMatches ?? 3}
+                onChange={(e) => update("minDaysBetweenMatches", Number(e.target.value))}
+              />
+              <span className="text-xs text-muted">3 = si juega lunes, puede volver el jueves.</span>
+            </Field>
             <Field label="Hora de inicio">
               <input className="field" type="time" value={config.startTime} onChange={(e) => update("startTime", e.target.value)} />
             </Field>
@@ -347,7 +359,8 @@ export function Wizard() {
             </Field>
           </div>
           <p className="text-sm text-muted">
-            Los partidos se programan cada hora. Si el primero es a las 7:00, el siguiente queda a las 8:00.
+            Los partidos se programan cada hora. Un equipo no juega tan seguido: con 3 días de
+            separación, si juega lunes el siguiente puede ser el jueves.
           </p>
         </div>
       ) : null}

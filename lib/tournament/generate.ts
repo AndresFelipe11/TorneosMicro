@@ -10,6 +10,9 @@ export function validateConfig(config: TournamentConfig): string | null {
   if (config.endDate < config.startDate) return "La fecha de fin debe ser posterior al inicio.";
   if (config.playingDays.length === 0) return "Elige al menos un día de juego.";
   if (config.maxMatchesPerDay < 1) return "Debe haber al menos un partido por día.";
+  if (config.minDaysBetweenMatches != null && (config.minDaysBetweenMatches < 1 || config.minDaysBetweenMatches > 14)) {
+    return "Los días de descanso entre partidos deben estar entre 1 y 14.";
+  }
   if (config.matchDurationMinutes < 10) return "La duración del partido es demasiado corta.";
 
   const names = config.teams.map((team) => teamName(team.name)).filter(Boolean);

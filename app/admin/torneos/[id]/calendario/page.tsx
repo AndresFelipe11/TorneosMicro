@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { getTournament } from "@/lib/queries";
 import { requireTournamentManagePage } from "@/lib/authz";
 import { toBogotaDateString } from "@/lib/tournament/dates";
-import { hasTournamentStarted, isClosedMatch } from "@/lib/tournament/match";
+import { isClosedMatch } from "@/lib/tournament/match";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { MatchList } from "@/components/MatchList";
 import { ScheduleEditor } from "./ScheduleEditor";
@@ -20,14 +20,13 @@ export default async function AdminCalendarPage({ params }: { params: Promise<{ 
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="display text-4xl">{tournament.name}</h1>
       <p className="mb-4 text-muted">
-        Si el torneo no ha empezado, cambiar los días reprograma también esa misma semana. Si ya
-        inició, los partidos se quedan y el cambio se hace partido por partido.
+        Al aplicar el calendario, los partidos pendientes se reprograman dejando días de descanso
+        entre partidos del mismo equipo. Los ya jugados no se tocan.
       </p>
       <TournamentTabs id={id} admin />
       <ScheduleEditor
         tournamentId={tournament.id}
         finished={tournament.status === "FINISHED"}
-        started={hasTournamentStarted(tournament)}
         pendingCount={pending.length}
         playedCount={played.length}
         initial={{
@@ -35,6 +34,7 @@ export default async function AdminCalendarPage({ params }: { params: Promise<{ 
           endDate: toBogotaDateString(tournament.endDate),
           playingDays: tournament.playingDays,
           maxMatchesPerDay: tournament.maxMatchesPerDay,
+          minDaysBetweenMatches: tournament.minDaysBetweenMatches,
           matchDurationMinutes: tournament.matchDurationMinutes,
           startTime: tournament.startTime,
           venue: tournament.venue ?? "",

@@ -55,7 +55,8 @@ export function RescheduleForm({
         <h2 className="display text-2xl">Reprogramar partido</h2>
         <p className="text-sm text-muted">
           Si {homeTeam} o {awayTeam} no pueden en la fecha actual, elige otra. Puede ser un día
-          distinto a los días habituales del torneo. No se permite si alguno ya juega ese mismo día.
+          distinto a los días habituales del torneo. No se permite si alguno ya tiene otro partido
+          demasiado seguido (por defecto 3 días: si juega lunes, puede volver el jueves).
           Esta acción solo está disponible para el administrador.
         </p>
         <p className="mt-2 text-sm">

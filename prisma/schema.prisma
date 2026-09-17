@@ -111,6 +111,7 @@ model Tournament {
   nextPhase            NextPhase        @default(NONE)
   playingDays          Int[]
   maxMatchesPerDay     Int              @default(4)
+  minDaysBetweenMatches Int             @default(3)
   matchDurationMinutes Int              @default(40)
   startTime            String           @default("09:00")
   venue                String?

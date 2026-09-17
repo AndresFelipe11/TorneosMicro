@@ -1,10 +1,10 @@
 import type { GeneratedMatch, ScheduleResult, TournamentConfig, UnscheduledMatch } from "./types";
-import { buildSlots, dayKey } from "./dates";
+import { buildSlots, clampMinDaysBetweenMatches, dayKey, teamNeedsRest } from "./dates";
 
 type ScheduleOptions = Pick<
   TournamentConfig,
   "startDate" | "endDate" | "playingDays" | "maxMatchesPerDay" | "matchDurationMinutes" | "startTime"
-> & { fromDate?: Date };
+> & { fromDate?: Date; minDaysBetweenMatches?: number };
 
 export type OccupiedMatch = {
   homeTeamName: string;
@@ -12,8 +12,31 @@ export type OccupiedMatch = {
   scheduledAt: Date | string;
 };
 
-const NOT_ENOUGH_SLOTS =
-  "No caben todos los partidos en las franjas libres. Amplía la fecha de fin del torneo, añade otro día de la semana para jugar, o programa un partido más por día.";
+export function scheduleOptionsFrom(
+  tournament: {
+    playingDays: number[];
+    maxMatchesPerDay: number;
+    matchDurationMinutes: number;
+    startTime: string;
+    minDaysBetweenMatches?: number | null;
+  },
+  range: { startDate: string; endDate: string; fromDate?: Date },
+): ScheduleOptions {
+  return {
+    startDate: range.startDate,
+    endDate: range.endDate,
+    fromDate: range.fromDate,
+    playingDays: tournament.playingDays,
+    maxMatchesPerDay: tournament.maxMatchesPerDay,
+    matchDurationMinutes: tournament.matchDurationMinutes,
+    startTime: tournament.startTime,
+    minDaysBetweenMatches: clampMinDaysBetweenMatches(tournament.minDaysBetweenMatches),
+  };
+}
+
+function notEnoughSlots(minDays: number) {
+  return `No caben todos los partidos dejando ${minDays} días entre partidos del mismo equipo. Si juega lunes, el siguiente puede ser el jueves. Amplía la fecha de fin, añade otro día de la semana, o baja los días de descanso.`;
+}
 
 function phaseOrder(phase: UnscheduledMatch["phase"]): number {
   if (phase === "GROUP" || phase === "ROUND_ROBIN") return 0;
@@ -28,6 +51,7 @@ export function scheduleMatches(
 ): ScheduleResult {
   const slots = buildSlots(config);
   const needed = matches.length;
+  const minDays = clampMinDaysBetweenMatches(config.minDaysBetweenMatches);
 
   const ordered = [...matches].sort((a, b) => {
     const phaseDiff = phaseOrder(a.phase) - phaseOrder(b.phase);
@@ -40,7 +64,7 @@ export function scheduleMatches(
   const teamDays = new Map<string, Set<string>>();
   const scheduled: GeneratedMatch[] = [];
 
-  const teamBusy = (team: string, key: string) => teamDays.get(team)?.has(key) ?? false;
+  const teamBusy = (team: string, key: string) => teamNeedsRest(teamDays.get(team) ?? [], key, minDays);
 
   const mark = (team: string, key: string) => {
     const set = teamDays.get(team) ?? new Set<string>();
@@ -65,7 +89,7 @@ export function scheduleMatches(
       matches: [],
       slotsAvailable: freeSlots,
       slotsNeeded: needed,
-      error: `No caben ${needed} partidos en las ${freeSlots} franjas libres. Amplía la fecha de fin del torneo, añade otro día de la semana para jugar, o programa un partido más por día.`,
+      error: notEnoughSlots(minDays),
     };
   }
 
@@ -77,9 +101,6 @@ export function scheduleMatches(
         return i;
       }
     }
-    for (let i = 0; i < slots.length; i++) {
-      if (!used.has(i)) return i;
-    }
     return -1;
   };
 
@@ -90,7 +111,7 @@ export function scheduleMatches(
         matches: [],
         slotsAvailable: slots.length,
         slotsNeeded: needed,
-        error: NOT_ENOUGH_SLOTS,
+        error: notEnoughSlots(minDays),
       };
     }
     used.add(index);

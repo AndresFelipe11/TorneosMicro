@@ -162,7 +162,7 @@ export function teamNameInput(value: string) {
 
 export const POSTPONE_WINDOWS = [
   { id: "SAME_DAY", label: "Mismo día, otra hora" },
-  { id: "TOMORROW", label: "Mañana" },
+  { id: "TOMORROW", label: "Al otro día" },
   { id: "THIS_WEEK", label: "Esta semana" },
   { id: "NEXT_WEEK", label: "La otra semana" },
 ] as const;
