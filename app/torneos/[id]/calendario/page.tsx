@@ -4,8 +4,6 @@ import { tournamentFilter } from "@/lib/search";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { MatchList } from "@/components/MatchList";
 import { TournamentFilterNote } from "@/components/TournamentFilterNote";
-import { ExportJornadaImageButton } from "@/components/ExportJornadaImageButton";
-import { buildJornadaPosters } from "@/lib/tournament/jornada";
 
 export default async function CalendarPage({
   params,
@@ -32,9 +30,6 @@ export default async function CalendarPage({
     <div className="mx-auto max-w-6xl px-4 py-8">
       <h1 className="display text-4xl">{tournament.name}</h1>
       <p className="mb-4 text-muted">Calendario generado según las fechas y los días de juego.</p>
-      <div className="mb-6">
-        <ExportJornadaImageButton pack={buildJornadaPosters(tournament)} />
-      </div>
       <TournamentTabs id={id} registrationOpen={tournament.registrationOpen && tournament.status !== "FINISHED"} query={filter.query} />
       <TournamentFilterNote query={filter.query} labels={filter.labels} found={filter.found} path={`/torneos/${id}/calendario`} />
       {filter.active && !filter.found ? null : filter.found && matches.length === 0 ? (
