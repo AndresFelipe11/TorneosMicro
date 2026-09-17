@@ -54,7 +54,7 @@ function fileSafeName(name: string) {
   return cleaned || "torneo";
 }
 
-export function leagueJornadaMatches<T extends { phase: string; round: number; scheduledAt: Date | string }>(
+export function leagueJornadaMatches<T extends { phase: string }>(
   matches: T[],
 ): T[] {
   return matches.filter((match) => LEAGUE_PHASES.has(match.phase));
