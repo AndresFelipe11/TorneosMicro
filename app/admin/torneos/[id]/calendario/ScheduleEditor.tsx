@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { useAskConfirm } from "@/components/ConfirmDialog";
 import { updateTournamentScheduleAction } from "@/lib/actions/tournaments";
 import { formatDateTime, phaseLabel, WEEKDAYS } from "@/lib/format";
@@ -38,6 +39,7 @@ export function ScheduleEditor({
   pending: UnscheduledMatch[];
   occupied: OccupiedMatch[];
 }) {
+  const router = useRouter();
   const [draft, setDraft] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -97,6 +99,7 @@ export function ScheduleEditor({
         return;
       }
       setMessage(result.message ?? "Calendario actualizado.");
+      router.refresh();
     });
   }
 
@@ -208,8 +211,8 @@ export function ScheduleEditor({
         ) : (
           <p className="text-sm text-muted">
             {pendingCount === 0
-              ? "No hay partidos pendientes. Igual puedes dejar lista la configuración para fases nuevas."
-              : `Se moverán ${pendingCount} partidos pendientes a las nuevas franjas (${preview.slotsAvailable} libres).`}
+              ? "No hay partidos sin jugar. Igual puedes dejar lista la configuración para fases nuevas."
+              : `${pendingCount} partidos aún no tienen resultado. Si aplicas, solo se les cambia la fecha (${preview.slotsAvailable} franjas libres). Los jugados no se tocan.`}
           </p>
         )}
         {error ? <p className="font-semibold text-red-400">{error}</p> : null}
@@ -220,20 +223,28 @@ export function ScheduleEditor({
       </div>
 
       {!preview.error && preview.matches.length > 0 ? (
-        <div className="space-y-2">
-          <h3 className="display text-xl">Vista previa de pendientes</h3>
-          {preview.matches.map((match) => (
-            <div key={match.id ?? `${match.homeTeamName}-${match.awayTeamName}-${match.round}`} className="card p-3">
-              <p className="text-xs uppercase tracking-wide text-muted">
-                {formatDateTime(match.scheduledAt)} · {phaseLabel(match.phase)}
-                {match.groupName ? ` · ${match.groupName}` : ""} · Jornada {match.round}
-              </p>
-              <p className="display text-xl">
-                {match.homeTeamName} vs {match.awayTeamName}
-              </p>
-            </div>
-          ))}
-        </div>
+        <details className="card p-4 sm:p-5">
+          <summary className="cursor-pointer text-sm font-bold">
+            Cómo quedarían las fechas de los {preview.matches.length} partidos sin jugar
+          </summary>
+          <p className="mt-2 text-sm text-muted">
+            Esta lista no se vacía al reprogramar: son los partidos que todavía no tienen marcador. Abajo, en
+            Partidos, está el calendario real.
+          </p>
+          <div className="mt-3 space-y-2">
+            {preview.matches.map((match) => (
+              <div key={match.id ?? `${match.homeTeamName}-${match.awayTeamName}-${match.round}`} className="rounded-2xl bg-black/20 p-3">
+                <p className="text-xs uppercase tracking-wide text-muted">
+                  {formatDateTime(match.scheduledAt)} · {phaseLabel(match.phase)}
+                  {match.groupName ? ` · ${match.groupName}` : ""} · Jornada {match.round}
+                </p>
+                <p className="display text-xl">
+                  {match.homeTeamName} vs {match.awayTeamName}
+                </p>
+              </div>
+            ))}
+          </div>
+        </details>
       ) : null}
     </div>
   );
