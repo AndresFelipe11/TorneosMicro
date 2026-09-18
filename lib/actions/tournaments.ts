@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { KnockoutRound, MatchPhase, Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { canManageTournament, requireGlobalMutation, requireMatchResultMutation, requireTournamentMutation } from "@/lib/authz";
-import { clampMinDaysBetweenMatches, dayKey, fromBogotaDateTimeLocal, parseLocalDate, scheduleFromDate, teamNeedsRest, toBogotaDateString } from "@/lib/tournament/dates";
+import { clampMinDaysBetweenMatches, fromBogotaDateTimeLocal, parseLocalDate, scheduleFromDate, teamRestWarnings, toBogotaDateString } from "@/lib/tournament/dates";
 import { generateRoundRobin, rebuildLeagueRounds } from "@/lib/tournament/roundRobin";
 import { scheduleMatches, scheduleOptionsFrom } from "@/lib/tournament/schedule";
 import { generateKnockoutMatches, generateNextKnockout, pairBySeed, pairQualified, qualifiedFromStandings, qualifiedFromTable } from "@/lib/tournament/knockout";
@@ -184,29 +184,6 @@ function scheduleConfigFrom(input: {
   };
 }
 
-function restDaysTeamConflict(
-  others: {
-    homeTeam: { id: string; name: string };
-    awayTeam: { id: string; name: string };
-    scheduledAt: Date;
-  }[],
-  homeTeam: { id: string; name: string },
-  awayTeam: { id: string; name: string },
-  when: Date,
-  minDaysBetweenMatches: number,
-) {
-  const key = dayKey(when);
-  const minDays = clampMinDaysBetweenMatches(minDaysBetweenMatches);
-  const clash = others.find((match) => {
-    const ids = [match.homeTeam.id, match.awayTeam.id];
-    if (!ids.includes(homeTeam.id) && !ids.includes(awayTeam.id)) return false;
-    return teamNeedsRest([dayKey(match.scheduledAt)], key, minDays);
-  });
-  if (!clash) return null;
-  const involved =
-    clash.homeTeam.id === homeTeam.id || clash.awayTeam.id === homeTeam.id ? homeTeam.name : awayTeam.name;
-  return `${involved} ya tiene partido el ${dayKey(clash.scheduledAt)} y necesita ${minDays} días de separación (si juega lunes, puede volver el jueves).`;
-}
 
 export async function updateTournamentScheduleAction(input: {
   tournamentId: string;
@@ -334,7 +311,10 @@ export async function rescheduleMatchAction(input: {
   matchId: string;
   scheduledAt: string;
   venue?: string | null;
-}): Promise<{ error: string; message?: undefined } | { error?: undefined; ok: true; message: string }> {
+}): Promise<
+  | { error: string; message?: undefined; warning?: undefined }
+  | { error?: undefined; ok: true; message: string; warning?: string }
+> {
   const when = fromBogotaDateTimeLocal(input.scheduledAt);
   if (!when || Number.isNaN(when.getTime())) {
     return { error: "La fecha y hora no son válidas." };
@@ -362,14 +342,19 @@ export async function rescheduleMatchAction(input: {
     return { error: "Ese partido ya tiene resultado. Anúlalo primero si necesitas cambiar la fecha." };
   }
 
-  const conflict = restDaysTeamConflict(
-    match.tournament.matches.filter((item) => item.id !== match.id),
-    match.homeTeam,
-    match.awayTeam,
+  const warnings = teamRestWarnings(
+    match.tournament.matches
+      .filter((item) => item.id !== match.id)
+      .map((item) => ({
+        homeTeamName: item.homeTeam.name,
+        awayTeamName: item.awayTeam.name,
+        scheduledAt: item.scheduledAt,
+      })),
+    match.homeTeam.name,
+    match.awayTeam.name,
     when,
     match.tournament.minDaysBetweenMatches,
   );
-  if (conflict) return { error: conflict };
 
   await prisma.match.update({
     where: { id: match.id },
@@ -379,7 +364,14 @@ export async function rescheduleMatchAction(input: {
   revalidateTournament(match.tournamentId);
   revalidatePath(`/admin/torneos/${match.tournamentId}/partidos/${match.id}`);
   revalidatePath(`/torneos/${match.tournamentId}/partidos/${match.id}`);
-  return { ok: true, message: "El partido quedó reprogramado." };
+  const warning = warnings.join(" ");
+  return {
+    ok: true,
+    warning: warning || undefined,
+    message: warning
+      ? `El partido quedó reprogramado. Alerta: ${warning}`
+      : "El partido quedó reprogramado.",
+  };
 }
 
 async function refreshTournamentStatus(tournamentId: string) {

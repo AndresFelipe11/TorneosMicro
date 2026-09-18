@@ -143,5 +143,11 @@ export async function resolvePostponeAction(input: {
     data: { status: "ACCEPTED", resolvedAt: new Date() },
   });
   revalidatePostpone(request.match.tournamentId, request.matchId);
-  return { ok: true, message: "Aplazamiento aceptado. El partido quedó reprogramado." };
+  return {
+    ok: true,
+    warning: result.warning,
+    message: result.warning
+      ? `Aplazamiento aceptado. El partido quedó reprogramado. Alerta: ${result.warning}`
+      : "Aplazamiento aceptado. El partido quedó reprogramado.",
+  };
 }

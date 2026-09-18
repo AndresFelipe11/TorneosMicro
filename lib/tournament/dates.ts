@@ -98,6 +98,33 @@ export function teamNeedsRest(playedDays: Iterable<string>, candidateDay: string
   return false;
 }
 
+export function teamRestWarnings(
+  others: {
+    homeTeamName: string;
+    awayTeamName: string;
+    scheduledAt: Date | string;
+  }[],
+  homeTeamName: string,
+  awayTeamName: string,
+  when: Date,
+  minDaysBetweenMatches: number,
+) {
+  const minDays = clampMinDaysBetweenMatches(minDaysBetweenMatches);
+  const key = dayKey(when);
+  const warnings: string[] = [];
+  for (const match of others) {
+    const names = [match.homeTeamName, match.awayTeamName];
+    for (const team of [homeTeamName, awayTeamName]) {
+      if (!names.includes(team)) continue;
+      if (!teamNeedsRest([dayKey(new Date(match.scheduledAt))], key, minDays)) continue;
+      warnings.push(
+        `${team} ya tiene ${match.homeTeamName} vs ${match.awayTeamName} el ${dayKey(new Date(match.scheduledAt))} y el descanso es de ${minDays} días (si juega lunes, lo habitual es volver el jueves).`,
+      );
+    }
+  }
+  return [...new Set(warnings)];
+}
+
 export function suggestedPostponeLocal(
   matchAt: Date,
   window?: "SAME_DAY" | "TOMORROW" | "THIS_WEEK" | "NEXT_WEEK" | null,

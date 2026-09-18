@@ -67,6 +67,9 @@ export function PostponeRequestsPanel({ requests }: { requests: PostponeRow[] })
             return;
           }
           setMessage(result.message ?? "Listo.");
+          if ("warning" in result && result.warning) {
+            setError(null);
+          }
           router.refresh();
         } catch {
           setError("No se pudo guardar. Intenta de nuevo.");

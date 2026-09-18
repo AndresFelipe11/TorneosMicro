@@ -92,6 +92,14 @@ export default async function AdminMatchPage({
                 currentScheduledAt={match.scheduledAt}
                 initialLocal={toBogotaDateTimeLocal(match.scheduledAt)}
                 venue={displayVenue(match.venue, tournament.venue)}
+                minDaysBetweenMatches={tournament.minDaysBetweenMatches}
+                otherMatches={tournament.matches
+                  .filter((item) => item.id !== match.id)
+                  .map((item) => ({
+                    homeTeamName: item.homeTeam.name,
+                    awayTeamName: item.awayTeam.name,
+                    scheduledAt: item.scheduledAt,
+                  }))}
               />
             </div>
           </details>
