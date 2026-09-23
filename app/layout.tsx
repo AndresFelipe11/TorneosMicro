@@ -20,13 +20,19 @@ export const metadata: Metadata = {
   description: "Programación de torneos de microfútbol, calendario, posiciones y goleadores.",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="es" className={`${figtree.variable} ${barlow.variable} h-full dark`} data-scroll-behavior="smooth">
-      <body className="min-h-full flex flex-col antialiased">
+      <body className="flex min-h-full min-w-0 flex-col antialiased">
         <ConfirmProvider>
           <Header />
-          <main className="flex-1">{children}</main>
+          <main className="min-w-0 flex-1">{children}</main>
         </ConfirmProvider>
       </body>
     </html>

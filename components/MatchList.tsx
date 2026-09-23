@@ -85,13 +85,24 @@ export function MatchList({
             highlighted ? "bg-lime/20 ring-2 ring-lime" : ""
           }`}
         >
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+          <p className="text-xs font-semibold uppercase leading-snug tracking-wide text-muted">
             {formatDateTime(match.scheduledAt)} · {phaseLabel(match.phase)}
             {match.group ? ` · ${match.group.name}` : ""}
             {match.knockoutRound ? ` · ${knockoutLabel(match.knockoutRound)}` : ` · Jornada ${match.round}`}
             {match.venue || tournamentVenue ? ` · ${displayVenue(match.venue, tournamentVenue)}` : ""}
           </p>
-          <p className="display text-xl leading-tight sm:text-2xl">
+          <div className="sm:hidden">
+            <p className="display text-lg leading-tight">{match.homeTeam.name}</p>
+            <p className="display my-1 text-2xl leading-none text-lime">
+              {scoreLabel(match.homeScore, match.awayScore, {
+                homePenalties: match.homePenalties,
+                awayPenalties: match.awayPenalties,
+                walkover: match.status === "WALKOVER",
+              })}
+            </p>
+            <p className="display text-lg leading-tight">{match.awayTeam.name}</p>
+          </div>
+          <p className="display hidden text-2xl leading-tight sm:block">
             {match.homeTeam.name}{" "}
             <span className="text-lime">
               {scoreLabel(match.homeScore, match.awayScore, {

@@ -39,11 +39,11 @@ export default async function HomePage() {
               <article key={tournament.id} className="card overflow-hidden">
                 <Link
                   href={`/torneos/${tournament.id}`}
-                  className="flex items-start gap-4 p-4 no-underline text-ink sm:p-5"
+                  className="flex min-w-0 items-start gap-3 p-4 no-underline text-ink sm:gap-4 sm:p-5"
                 >
                   <TournamentCover src={tournament.coverImage} alt={tournament.name} variant="card" />
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-col items-start gap-2 sm:flex-row sm:justify-between">
                       <h3 className="display min-w-0 text-xl leading-tight sm:text-2xl">{tournament.name}</h3>
                       <StatusBadge status={tournament.status} />
                     </div>

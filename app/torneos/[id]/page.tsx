@@ -77,8 +77,8 @@ export default async function TournamentPage({
         query={filter.query}
       />
       <TournamentFilterNote query={filter.query} labels={filter.labels} found={filter.found} path={`/torneos/${id}`} />
-      <div className="grid gap-6 lg:grid-cols-2">
-        <div>
+      <div className="grid min-w-0 gap-6 lg:grid-cols-2">
+        <div className="min-w-0">
           <h2 className="display mb-3 text-2xl">Posiciones</h2>
           <div className="space-y-4">
             {[...standings.entries()].map(([title, rows]) => (
@@ -92,7 +92,7 @@ export default async function TournamentPage({
             ))}
           </div>
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="display mb-3 text-2xl">
             {filter.found ? "Próximos partidos del equipo" : "Próximos partidos"}
           </h2>
@@ -107,7 +107,7 @@ export default async function TournamentPage({
             />
           )}
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="display mb-3 text-2xl">Goleadores</h2>
           <ScorersTable
             rows={scorers}
@@ -115,7 +115,7 @@ export default async function TournamentPage({
             highlightPlayerIds={filter.playerIds}
           />
         </div>
-        <div>
+        <div className="min-w-0">
           <h2 className="display mb-3 text-2xl">Valla menos vencida</h2>
           <DefenseTable rows={defense} highlightTeamIds={filter.teamIds} tournamentId={id} />
         </div>

@@ -106,6 +106,8 @@ video {
 }
 
 .card {
+  min-width: 0;
+  max-width: 100%;
   background: var(--card);
   border: 1px solid rgba(240, 180, 41, 0.12);
   border-radius: 1.25rem;
@@ -183,14 +185,23 @@ td {
     padding: 0.65rem 0.95rem;
   }
 
+  .display {
+    letter-spacing: 0;
+  }
+
   th,
   td {
-    padding: 0.55rem 0.55rem;
+    padding: 0.55rem 0.4rem;
   }
 
   h1.display {
-    font-size: clamp(1.7rem, 8vw, 2.25rem);
+    font-size: clamp(1.45rem, 7.2vw, 2.1rem);
     line-height: 1.1;
+  }
+
+  h2.display {
+    font-size: clamp(1.25rem, 6vw, 1.7rem);
+    line-height: 1.15;
   }
 
   body.has-jornada-bar {
