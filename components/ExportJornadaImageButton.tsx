@@ -61,14 +61,30 @@ function loadImage(src: string) {
   });
 }
 
+function groupMatchesByDay(matches: JornadaPoster["matches"]) {
+  const groups: { heading: string; matches: JornadaPoster["matches"] }[] = [];
+  for (const match of matches) {
+    const last = groups.at(-1);
+    if (!last || last.heading !== match.dayHeading) {
+      groups.push({ heading: match.dayHeading, matches: [match] });
+      continue;
+    }
+    last.matches.push(match);
+  }
+  return groups;
+}
+
 async function drawPoster(poster: JornadaPoster) {
   const pad = 56;
-  const cardGap = 18;
-  const cardH = poster.matches.length > 6 ? 150 : 176;
+  const cardGap = 14;
+  const dayH = 46;
+  const cardH = poster.matches.length > 8 ? 128 : 150;
   const nameFont = 54;
   const header = 280;
   const footer = 88;
-  const height = Math.max(1080, header + poster.matches.length * (cardH + cardGap) + footer);
+  const days = groupMatchesByDay(poster.matches);
+  const body = days.reduce((sum, day) => sum + dayH + day.matches.length * (cardH + cardGap), 0);
+  const height = Math.max(1080, header + body + footer);
   const canvas = document.createElement("canvas");
   canvas.width = W;
   canvas.height = height;
@@ -117,7 +133,7 @@ async function drawPoster(poster: JornadaPoster) {
   const titleMax = cover ? W - pad * 2 - 140 : W - pad * 2;
   ctx.fillStyle = GOLD;
   ctx.font = '800 18px Figtree, system-ui, sans-serif';
-  ctx.fillText(`JORNADA ${poster.round}`, pad, 160);
+  ctx.fillText(`SEMANA  ${poster.weekLabel.toLocaleUpperCase("es-CO")}`, pad, 160);
   ctx.fillStyle = CREAM;
   ctx.font = `800 ${nameFont}px "Barlow Condensed", Impact, sans-serif`;
   const titleLines = wrapLines(ctx, poster.tournamentName.toLocaleUpperCase("es-CO"), titleMax);
@@ -145,36 +161,46 @@ async function drawPoster(poster: JornadaPoster) {
     ctx.stroke();
   }
 
-  poster.matches.forEach((match, index) => {
-    const y = header + index * (cardH + cardGap);
-    roundRect(ctx, pad, y, W - pad * 2, cardH, 28);
-    ctx.fillStyle = CARD;
-    ctx.fill();
-    ctx.strokeStyle = "rgba(240,180,41,0.22)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    ctx.fillStyle = MUTED;
-    ctx.font = '700 20px Figtree, system-ui, sans-serif';
-    ctx.textAlign = "left";
-    const meta = [match.when, match.group, match.venue].filter(Boolean).join("  ·  ");
-    ctx.fillText(meta, pad + 32, y + 42, W - pad * 2 - 64);
-
-    const inner = W - pad * 2 - 64;
-    ctx.fillStyle = CREAM;
-    ctx.font = '800 36px "Barlow Condensed", Impact, sans-serif';
-    const homeLines = wrapLines(ctx, match.home, inner);
-    ctx.fillText(homeLines[0], pad + 32, y + 88, inner);
-
+  let y = header;
+  for (const day of days) {
     ctx.fillStyle = GOLD;
-    ctx.font = '800 22px "Barlow Condensed", Impact, sans-serif';
-    ctx.fillText("VS", pad + 32, y + 122);
+    ctx.font = '800 22px Figtree, system-ui, sans-serif';
+    ctx.textAlign = "left";
+    ctx.fillText(day.heading, pad, y + 28);
+    y += dayH;
 
-    ctx.fillStyle = CREAM;
-    ctx.font = '800 36px "Barlow Condensed", Impact, sans-serif';
-    const awayLines = wrapLines(ctx, match.away, inner);
-    ctx.fillText(awayLines[0], pad + 32, y + 158, inner);
-  });
+    for (const match of day.matches) {
+      roundRect(ctx, pad, y, W - pad * 2, cardH, 24);
+      ctx.fillStyle = CARD;
+      ctx.fill();
+      ctx.strokeStyle = "rgba(240,180,41,0.22)";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.fillStyle = MUTED;
+      ctx.font = '700 20px Figtree, system-ui, sans-serif';
+      ctx.textAlign = "left";
+      const meta = [match.time, match.group, match.venue].filter(Boolean).join("  ·  ");
+      ctx.fillText(meta, pad + 32, y + 38, W - pad * 2 - 64);
+
+      const inner = W - pad * 2 - 64;
+      const nameSize = cardH > 140 ? 36 : 32;
+      ctx.fillStyle = CREAM;
+      ctx.font = `800 ${nameSize}px "Barlow Condensed", Impact, sans-serif`;
+      const homeLines = wrapLines(ctx, match.home, inner);
+      ctx.fillText(homeLines[0], pad + 32, y + 78, inner);
+
+      ctx.fillStyle = GOLD;
+      ctx.font = '800 20px "Barlow Condensed", Impact, sans-serif';
+      ctx.fillText("VS", pad + 32, y + 104);
+
+      ctx.fillStyle = CREAM;
+      ctx.font = `800 ${nameSize}px "Barlow Condensed", Impact, sans-serif`;
+      const awayLines = wrapLines(ctx, match.away, inner);
+      ctx.fillText(awayLines[0], pad + 32, y + cardH - 22, inner);
+      y += cardH + cardGap;
+    }
+  }
 
   ctx.fillStyle = MUTED;
   ctx.font = '700 18px Figtree, system-ui, sans-serif';
@@ -200,13 +226,13 @@ export function ExportJornadaImageButton({
   pack: JornadaPosterPack | null;
 }) {
   const posters = pack?.posters ?? [];
-  const [round, setRound] = useState(pack?.defaultRound ?? posters[0]?.round ?? 1);
+  const [weekKey, setWeekKey] = useState(pack?.defaultWeekKey ?? posters[0]?.weekKey ?? "");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<{ url: string; file: File } | null>(null);
   const poster = useMemo(
-    () => posters.find((item) => item.round === round) ?? posters[0] ?? null,
-    [posters, round],
+    () => posters.find((item) => item.weekKey === weekKey) ?? posters[0] ?? null,
+    [posters, weekKey],
   );
   const visible = Boolean(pack && posters.length > 0 && poster);
 
@@ -249,22 +275,22 @@ export function ExportJornadaImageButton({
   }
 
   function picker(suffix: string) {
-    const selectId = `jornada-poster-${poster.filename}-${suffix}`;
+    const selectId = `semana-poster-${poster.filename}-${suffix}`;
     return (
       <>
         <label className="sr-only" htmlFor={selectId}>
-          Jornada
+          Semana
         </label>
         <select
           id={selectId}
-          className="field w-full sm:max-w-xs"
+          className="field w-full sm:max-w-md"
           disabled={pending}
-          value={poster.round}
-          onChange={(event) => setRound(Number(event.target.value))}
+          value={poster.weekKey}
+          onChange={(event) => setWeekKey(event.target.value)}
         >
           {posters.map((item) => (
-            <option key={item.round} value={item.round}>
-              Jornada {item.round}
+            <option key={item.weekKey} value={item.weekKey}>
+              {item.weekLabel}
               {item.matches.length === 1 ? " · 1 partido" : ` · ${item.matches.length} partidos`}
             </option>
           ))}
@@ -278,11 +304,11 @@ export function ExportJornadaImageButton({
 
   return (
     <>
-      <section id="descargar-jornada" className="mb-6 hidden rounded-3xl border-2 border-lime bg-lime/15 p-5 sm:block">
+      <section id="descargar-semana" className="mb-6 hidden rounded-3xl border-2 border-lime bg-lime/15 p-5 sm:block">
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-lime">Afiche para redes</p>
-        <h2 className="display mt-1 text-2xl leading-tight sm:text-3xl">Descargar jornada</h2>
+        <h2 className="display mt-1 text-2xl leading-tight sm:text-3xl">Descargar semana</h2>
         <p className="mt-1 text-sm text-cream/85">
-          Elige la fecha y baja la imagen con los partidos para WhatsApp o Instagram.
+          Elige la semana (lunes a viernes) y baja la imagen con los partidos para WhatsApp o Instagram.
         </p>
         <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">{picker("desktop")}</div>
         {error ? <p className="mt-3 text-sm font-semibold text-red-400">{error}</p> : null}
@@ -290,7 +316,7 @@ export function ExportJornadaImageButton({
 
       <div className="fixed inset-x-0 bottom-0 z-50 border-t-2 border-lime bg-[#0c1020] px-4 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden">
         <p className="mb-2 text-center text-xs font-bold uppercase tracking-[0.18em] text-lime">
-          Descargar jornada
+          Descargar semana
         </p>
         <div className="flex flex-col gap-2">{picker("mobile")}</div>
         {error ? <p className="mt-2 text-center text-sm font-semibold text-red-400">{error}</p> : null}
@@ -300,7 +326,7 @@ export function ExportJornadaImageButton({
         <div className="fixed inset-0 z-[70] flex flex-col bg-black/95 p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
           <img
             src={preview.url}
-            alt={`Jornada ${poster.round}`}
+            alt={`Semana ${poster.weekLabel}`}
             className="min-h-0 w-full flex-1 object-contain"
           />
           <p className="mt-3 text-center text-sm text-cream/90">

@@ -71,10 +71,24 @@ export function startOfNextWeekBogota(from = new Date()): Date {
   return parseLocalDate(cursor);
 }
 
-export function nextDateString(isoDate: string): string {
+export function addDaysToDateString(isoDate: string, days: number): string {
   const [year, month, day] = isoDate.split("-").map(Number);
-  const next = new Date(Date.UTC(year, month - 1, day + 1));
+  const next = new Date(Date.UTC(year, month - 1, day + days));
   return `${next.getUTCFullYear()}-${pad(next.getUTCMonth() + 1)}-${pad(next.getUTCDate())}`;
+}
+
+export function nextDateString(isoDate: string): string {
+  return addDaysToDateString(isoDate, 1);
+}
+
+export function mondayOfWeekBogota(isoDate: string): string {
+  const weekday = weekdayBogota(isoDate);
+  const offset = weekday === 0 ? -6 : 1 - weekday;
+  return addDaysToDateString(isoDate, offset);
+}
+
+export function fridayOfWeekBogota(mondayIso: string): string {
+  return addDaysToDateString(mondayIso, 4);
 }
 
 export function daysBetweenKeys(a: string, b: string): number {
