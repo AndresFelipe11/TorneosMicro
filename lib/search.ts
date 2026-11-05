@@ -44,6 +44,7 @@ export function tournamentFilter(tournament: TournamentDetail, rawQuery?: string
   const labels: string[] = [];
 
   for (const team of tournament.teams) {
+    if (team.name === "RIVALES RETIRADOS") continue;
     if (team.name.toLocaleLowerCase("es").includes(needle)) {
       teamIds.add(team.id);
       labels.push(team.name);

@@ -2,9 +2,27 @@ import type { MatchStatus } from "@prisma/client";
 import { toBogotaDateString } from "./dates";
 
 export const WALKOVER_GOALS = 3;
+/** Partidos sintéticos solo para acreditar goles de rivales retirados. */
+export const CREDIT_GOALS_VENUE = "__CREDITO_GOLES__";
+export const CREDIT_GOALS_OPPONENT = "RIVALES RETIRADOS";
 
 export function isClosedMatch(status: MatchStatus | string) {
   return status === "PLAYED" || status === "WALKOVER";
+}
+
+export function isCreditGoalsMatch(match: {
+  venue?: string | null;
+  homeTeam?: { name?: string | null } | null;
+  awayTeam?: { name?: string | null } | null;
+}) {
+  if (match.venue === CREDIT_GOALS_VENUE) return true;
+  const home = match.homeTeam?.name;
+  const away = match.awayTeam?.name;
+  return home === CREDIT_GOALS_OPPONENT || away === CREDIT_GOALS_OPPONENT;
+}
+
+export function isCreditGoalsTeam(team: { name?: string | null }) {
+  return team.name === CREDIT_GOALS_OPPONENT;
 }
 
 export function hasTournamentStarted(input: {

@@ -14,6 +14,7 @@ import {
   teamName,
 } from "@/lib/format";
 import { defenseFor, scorersFor, standingsFor, type TournamentDetail } from "@/lib/queries";
+import { isCreditGoalsMatch, isCreditGoalsTeam } from "@/lib/tournament/match";
 
 const HEADER_FILL: ExcelJS.Fill = {
   type: "pattern",
@@ -81,8 +82,8 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
       ["Días entre partidos del mismo equipo", tournament.minDaysBetweenMatches],
       ["Duración (min)", tournament.matchDurationMinutes],
       ["Siguiente fase", finalsPlanLabel(tournament.format, tournament.nextPhase, tournament.qualifyPerGroup) ?? "—"],
-      ["Equipos", tournament.teams.length],
-      ["Partidos", tournament.matches.length],
+      ["Equipos", tournament.teams.filter((team) => !isCreditGoalsTeam(team)).length],
+      ["Partidos", tournament.matches.filter((match) => !isCreditGoalsMatch(match)).length],
     ],
   );
 
@@ -90,23 +91,27 @@ export async function buildTournamentWorkbook(tournament: TournamentDetail) {
     workbook,
     "Equipos",
     ["Equipo", "Grupo", "Jugadores"],
-    tournament.teams.map((team) => [teamName(team.name), team.group?.name ?? "—", team.players.length]),
+    tournament.teams
+      .filter((team) => !isCreditGoalsTeam(team))
+      .map((team) => [teamName(team.name), team.group?.name ?? "—", team.players.length]),
   );
 
   addSheet(
     workbook,
     "Jugadores",
     ["Equipo", "Grupo", "Jugador"],
-    tournament.teams.flatMap((team) =>
-      team.players.map((player) => [teamName(team.name), team.group?.name ?? "—", player.name]),
-    ),
+    tournament.teams
+      .filter((team) => !isCreditGoalsTeam(team))
+      .flatMap((team) =>
+        team.players.map((player) => [teamName(team.name), team.group?.name ?? "—", player.name]),
+      ),
   );
 
   addSheet(
     workbook,
     "Calendario",
     ["Fecha", "Fase", "Grupo", "Ronda", "Cancha", "Local", "Visitante", "Marcador", "Estado", "Planilla"],
-    tournament.matches.map((match) => [
+    tournament.matches.filter((match) => !isCreditGoalsMatch(match)).map((match) => [
       formatDateTime(match.scheduledAt),
       phaseLabel(match.phase),
       match.group?.name ?? "—",

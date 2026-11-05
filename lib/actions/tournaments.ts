@@ -13,7 +13,12 @@ import { validateConfig, withDistributedGroups } from "@/lib/tournament/generate
 import type { GeneratedMatch, TournamentConfig, UnscheduledMatch } from "@/lib/tournament/types";
 import { getTournament, standingsFor } from "@/lib/queries";
 import { readScoresheetFile } from "@/lib/scoresheet";
-import { isClosedMatch, venueOrNull, WALKOVER_GOALS } from "@/lib/tournament/match";
+import {
+  isClosedMatch,
+  isCreditGoalsMatch,
+  venueOrNull,
+  WALKOVER_GOALS,
+} from "@/lib/tournament/match";
 import { teamName } from "@/lib/format";
 
 function revalidateTournament(id: string) {
@@ -205,8 +210,9 @@ export async function updateTournamentScheduleAction(input: {
   const config = scheduleConfigFrom(input);
   if ("error" in config) return { error: config.error };
 
-  const pending = tournament.matches.filter((match) => match.status === "SCHEDULED");
-  const occupied = tournament.matches
+  const leagueMatches = tournament.matches.filter((match) => !isCreditGoalsMatch(match));
+  const pending = leagueMatches.filter((match) => match.status === "SCHEDULED");
+  const occupied = leagueMatches
     .filter((match) => isClosedMatch(match.status))
     .map((match) => ({
       homeTeamName: match.homeTeam.name,
@@ -215,7 +221,7 @@ export async function updateTournamentScheduleAction(input: {
     }));
 
   const rebuiltRounds = rebuildLeagueRounds(
-    tournament.matches.map((match) => ({
+    leagueMatches.map((match) => ({
       id: match.id,
       homeTeamName: match.homeTeam.name,
       awayTeamName: match.awayTeam.name,
@@ -794,7 +800,9 @@ export async function advancePhaseAction(tournamentId: string) {
 
   const leaguePhase = leaguePhaseOf(tournament.format);
   const leagueMatches = leaguePhase
-    ? tournament.matches.filter((match) => match.phase === leaguePhase)
+    ? tournament.matches.filter(
+        (match) => match.phase === leaguePhase && !isCreditGoalsMatch(match),
+      )
     : [];
   const knockoutMatches = tournament.matches.filter((match) => match.phase === "KNOCKOUT");
   const quadMatches = tournament.matches.filter((match) => match.phase === "QUADRANGULAR");
@@ -911,7 +919,9 @@ export async function advancePhaseAction(tournamentId: string) {
     }
   }
 
-  const allPlayed = tournament.matches.every((match) => isClosedMatch(match.status));
+  const allPlayed = tournament.matches
+    .filter((match) => !isCreditGoalsMatch(match))
+    .every((match) => isClosedMatch(match.status));
   if (allPlayed) {
     await prisma.tournament.update({ where: { id: tournamentId }, data: { status: "FINISHED" } });
     revalidateTournament(tournamentId);

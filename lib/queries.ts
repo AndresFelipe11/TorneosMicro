@@ -1,13 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { computeDefense } from "@/lib/tournament/defense";
 import { computePlayerCards } from "@/lib/tournament/discipline";
-import { isClosedMatch } from "@/lib/tournament/match";
+import { isClosedMatch, isCreditGoalsMatch, isCreditGoalsTeam } from "@/lib/tournament/match";
 import { computeScorers } from "@/lib/tournament/scorers";
 import { computeStandings, standingsByGroup } from "@/lib/tournament/standings";
 
 function closedMatchesOf(tournament: TournamentDetail) {
   return tournament.matches.filter(
-    (match) => isClosedMatch(match.status) && match.homeScore != null && match.awayScore != null,
+    (match) =>
+      !isCreditGoalsMatch(match) &&
+      isClosedMatch(match.status) &&
+      match.homeScore != null &&
+      match.awayScore != null,
   );
 }
 
@@ -98,11 +102,14 @@ export function playedMatchesOf(tournament: TournamentDetail) {
 }
 
 export function standingsFor(tournament: TournamentDetail) {
-  const teams = tournament.teams.map((team) => ({
-    id: team.id,
-    name: team.name,
-    groupName: team.group?.name ?? null,
-  }));
+  const teams = tournament.teams
+    .filter((team) => !isCreditGoalsTeam(team))
+    .map((team) => ({
+      id: team.id,
+      name: team.name,
+      groupName: team.group?.name ?? null,
+      bonusGoals: team.bonusGoals ?? 0,
+    }));
 
   const played = closedMatchesOf(tournament);
 
@@ -157,11 +164,13 @@ export function scorersFor(tournament: TournamentDetail) {
 }
 
 export function defenseFor(tournament: TournamentDetail) {
-  const teams = tournament.teams.map((team) => ({
-    id: team.id,
-    name: team.name,
-    groupName: team.group?.name ?? null,
-  }));
+  const teams = tournament.teams
+    .filter((team) => !isCreditGoalsTeam(team))
+    .map((team) => ({
+      id: team.id,
+      name: team.name,
+      groupName: team.group?.name ?? null,
+    }));
   const played = closedMatchesOf(tournament).map((match) => ({
       homeTeamId: match.homeTeamId,
       awayTeamId: match.awayTeamId,

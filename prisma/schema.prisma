@@ -176,6 +176,8 @@ model Team {
   groupId      String?
   group        Group?     @relation(fields: [groupId], references: [id], onDelete: SetNull)
   whatsapp     String?
+  /// Goles a favor acreditados sin partido (p. ej. rivales retirados)
+  bonusGoals   Int        @default(0)
   players      Player[]
   captain      User?
   homeMatches  Match[]    @relation("HomeTeam")

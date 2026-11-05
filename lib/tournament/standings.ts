@@ -13,6 +13,7 @@ export type TeamRef = {
   id: string;
   name: string;
   groupName?: string | null;
+  bonusGoals?: number;
 };
 
 function emptyRow(team: TeamRef): StandingRow {
@@ -72,6 +73,15 @@ export function computeStandings(teams: TeamRef[], matches: PlayedMatch[]): Stan
     if (!home || !away) continue;
     applyResult(home, match.homeScore, match.awayScore);
     applyResult(away, match.awayScore, match.homeScore);
+  }
+
+  for (const team of teams) {
+    const bonus = team.bonusGoals ?? 0;
+    if (bonus <= 0) continue;
+    const row = table.get(team.id);
+    if (!row) continue;
+    row.gf += bonus;
+    row.gd = row.gf - row.ga;
   }
 
   const rows = [...table.values()];

@@ -64,13 +64,19 @@ export function MatchList({
   tournamentVenue?: string | null;
   highlightTeamIds?: string[];
 }) {
-  if (matches.length === 0) {
+  const visible = matches.filter(
+    (match) =>
+      match.venue !== "__CREDITO_GOLES__" &&
+      match.homeTeam.name !== "RIVALES RETIRADOS" &&
+      match.awayTeam.name !== "RIVALES RETIRADOS",
+  );
+  if (visible.length === 0) {
     return <p className="text-muted">Aún no hay partidos programados.</p>;
   }
 
   return (
     <div className="grid gap-3">
-      {matches.map((match) => {
+      {visible.map((match) => {
         const highlighted =
           highlightTeamIds.length > 0 &&
           Boolean(

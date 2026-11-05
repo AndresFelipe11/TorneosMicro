@@ -40,6 +40,12 @@ export default async function TournamentPage({
     .filter((match) => match.status === "SCHEDULED")
     .filter(
       (match) =>
+        match.venue !== "__CREDITO_GOLES__" &&
+        match.homeTeam.name !== "RIVALES RETIRADOS" &&
+        match.awayTeam.name !== "RIVALES RETIRADOS",
+    )
+    .filter(
+      (match) =>
         !filter.found ||
         filter.teamIds.includes(match.homeTeamId) ||
         filter.teamIds.includes(match.awayTeamId),

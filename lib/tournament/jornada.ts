@@ -1,6 +1,6 @@
 import { formatTime, teamName, weekdayLabel } from "@/lib/format";
 import { fridayOfWeekBogota, mondayOfWeekBogota, toBogotaDateString, weekdayBogota } from "@/lib/tournament/dates";
-import { displayVenue } from "@/lib/tournament/match";
+import { displayVenue, isCreditGoalsMatch } from "@/lib/tournament/match";
 
 export type JornadaPosterMatch = {
   home: string;
@@ -60,10 +60,17 @@ function fileSafeName(name: string) {
   return cleaned || "torneo";
 }
 
-export function leagueJornadaMatches<T extends { phase: string }>(
-  matches: T[],
-): T[] {
-  return matches.filter((match) => LEAGUE_PHASES.has(match.phase));
+export function leagueJornadaMatches<
+  T extends {
+    phase: string;
+    venue?: string | null;
+    homeTeam?: { name?: string | null } | null;
+    awayTeam?: { name?: string | null } | null;
+  },
+>(matches: T[]): T[] {
+  return matches.filter(
+    (match) => LEAGUE_PHASES.has(match.phase) && !isCreditGoalsMatch(match),
+  );
 }
 
 export function jornadaRounds(matches: { phase: string; round: number }[]): number[] {

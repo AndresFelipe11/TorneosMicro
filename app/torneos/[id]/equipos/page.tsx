@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getTournament, standingsFor } from "@/lib/queries";
 import { tournamentFilter } from "@/lib/search";
 import { formatDateTime, teamName } from "@/lib/format";
+import { isCreditGoalsTeam } from "@/lib/tournament/match";
 import { TournamentTabs } from "@/components/TournamentTabs";
 import { TournamentFilterNote } from "@/components/TournamentFilterNote";
 
@@ -19,9 +20,10 @@ export default async function TeamsPage({
   if (!tournament) notFound();
   const filter = tournamentFilter(tournament, q);
   const standings = standingsFor(tournament);
-  const teams = filter.found
+  const teams = (filter.found
     ? tournament.teams.filter((team) => filter.teamIds.includes(team.id))
-    : tournament.teams;
+    : tournament.teams
+  ).filter((team) => !isCreditGoalsTeam(team));
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
